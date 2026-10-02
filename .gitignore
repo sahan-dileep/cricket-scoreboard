@@ -1,23 +1,33 @@
 # Dependencies
 node_modules/
+**/node_modules/
 .pnp
 .pnp.js
 
 # Testing
 /coverage
+coverage/
 
 # Next.js build output
 .next/
+**/.next/
 out/
-build/
+**/out/
 
 # Android build output
 .gradle/
+**/.gradle/
 build/
+**/build/
 app/build/
+**/app/build/
+.kotlin/
+**/.kotlin/
 *.iml
 .idea/
+**/.idea/
 local.properties
+**/local.properties
 .DS_Store
 
 # Misc

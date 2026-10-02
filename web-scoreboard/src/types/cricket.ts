@@ -1,4 +1,5 @@
 export interface Batsman {
+  id?: string;
   name: string;
   runs: number;
   balls: number;
@@ -6,18 +7,26 @@ export interface Batsman {
   sixes: number;
   strikeRate?: number;
   onStrike: boolean;
+  isStriker?: boolean;
 }
 
 export interface Bowler {
+  id?: string;
   name: string;
   overs: string | number;
+  maidens?: number;
   runs: number;
   wickets: number;
   economy?: string | number;
 }
 
 export interface BallDisplay {
-  label: string; // '0', '1', '2', '3', '4', '6', 'W', 'WD', 'NB', etc.
+  label?: string; // '0', '1', '2', '3', '4', '6', 'W', 'WD', 'NB', etc.
+  text?: string;
+  color?: string;
+  runs?: number;
+  isWicket?: boolean;
+  isExtra?: boolean;
   isNew?: boolean;
 }
 
@@ -32,9 +41,13 @@ export interface Partnership {
 }
 
 export interface MatchInfo {
+  id?: string;
   team1: string;
   team2: string;
+  totalOvers?: number;
+  currentInnings?: number;
   status: 'NOT_STARTED' | 'INNINGS_1' | 'INNINGS_2' | 'COMPLETED' | string;
+  isCompleted?: boolean;
   result?: {
     title: string;
     detail: string;
@@ -48,9 +61,14 @@ export interface MatchInfo {
 
 export interface CurrentInnings {
   battingTeam: string;
+  bowlingTeam?: string;
   score: number;
   wickets: number;
   overs: string;
+  totalRuns?: number;
+  totalWickets?: number;
+  totalBalls?: number;
+  currentOverBalls?: number;
   runRate?: number;
   extras?: number;
   lastWicket?: string;
@@ -72,9 +90,13 @@ export type AdminActionType =
   | 'CLEAR_RESULT';
 
 export interface AdminCommand {
+  id?: string;
+  type?: AdminActionType;
   action: AdminActionType;
   src?: string;
   loop?: boolean;
+  payload?: Record<string, unknown>;
+  timestamp?: number;
 }
 
 export interface ScoreData {

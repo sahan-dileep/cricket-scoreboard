@@ -17,6 +17,9 @@ export default function AdminPage() {
   const [imageAds, setImageAds] = useState<MediaItem[]>([]);
   const [musicFiles, setMusicFiles] = useState<MediaItem[]>([]);
 
+  // Drag and drop state
+  const [dragOverTypes, setDragOverTypes] = useState<Record<string, boolean>>({});
+
   // Settings
   const [imageDuration, setImageDuration] = useState<number>(30);
   const [loopMusic, setLoopMusic] = useState<boolean>(true);
@@ -34,12 +37,15 @@ export default function AdminPage() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem('cricket_android_ip');
-    if (saved) {
-      setAndroidIp(saved);
-      setIpInput(saved);
-    }
-    addLog('Admin console initialized. Ready to connect.', 'info');
+    const timer = setTimeout(() => {
+      const saved = localStorage.getItem('cricket_android_ip');
+      if (saved) {
+        setAndroidIp(saved);
+        setIpInput(saved);
+      }
+      addLog('Admin console initialized. Ready to connect.', 'info');
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleSaveIp = (e: React.FormEvent) => {
@@ -114,9 +120,8 @@ export default function AdminPage() {
     }
   };
 
-  // File Upload Handlers
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>, type: 'video' | 'image' | 'music') => {
-    const files = e.target.files;
+  // Process files from either file picker or native drag & drop
+  const processFiles = (files: FileList | File[], type: 'video' | 'image' | 'music') => {
     if (!files || files.length === 0) return;
 
     const items: MediaItem[] = Array.from(files).map((file) => ({
@@ -131,7 +136,28 @@ export default function AdminPage() {
     if (type === 'music') setMusicFiles((prev) => [...prev, ...items]);
 
     addLog(`Uploaded ${items.length} ${type} file(s)`, 'success');
-    e.target.value = '';
+  };
+
+  // Drag-and-drop container event handlers
+  const handleDragOver = (e: React.DragEvent<HTMLElement>, type: 'video' | 'image' | 'music') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTypes((prev) => ({ ...prev, [type]: true }));
+  };
+
+  const handleDragLeave = (e: React.DragEvent<HTMLElement>, type: 'video' | 'image' | 'music') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTypes((prev) => ({ ...prev, [type]: false }));
+  };
+
+  const handleDrop = (e: React.DragEvent<HTMLElement>, type: 'video' | 'image' | 'music') => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverTypes((prev) => ({ ...prev, [type]: false }));
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      processFiles(e.dataTransfer.files, type);
+    }
   };
 
   const playVideoAd = (item: MediaItem) => {
@@ -144,12 +170,18 @@ export default function AdminPage() {
     sendCommand('PLAY_IMAGE_AD', { src: item.url });
 
     if (autoStopTimeoutRef.current) clearTimeout(autoStopTimeoutRef.current);
-    if (imageDuration > 0) {
+    const duration = Number(imageDuration);
+    if (duration <= 0) {
+      // Guard zero-second or negative auto-stop duration: stop immediately so ad never hangs indefinitely
+      sendCommand('STOP_AD');
+      setActiveMediaName(null);
+      addLog(`Image ad [${item.name}] auto-stopped immediately (duration was <= 0s)`, 'info');
+    } else {
       autoStopTimeoutRef.current = setTimeout(() => {
         sendCommand('STOP_AD');
         setActiveMediaName(null);
-        addLog(`Image ad [${item.name}] auto-stopped after ${imageDuration}s`, 'info');
-      }, imageDuration * 1000);
+        addLog(`Image ad [${item.name}] auto-stopped after ${duration}s`, 'info');
+      }, duration * 1000);
     }
   };
 
@@ -182,6 +214,11 @@ export default function AdminPage() {
             <h1 className="text-2xl font-black uppercase tracking-wider text-amber-400">
               Scoreboard Admin Console
             </h1>
+            {activeMediaName && (
+              <span className="ml-2 text-xs font-semibold px-3 py-1 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/40">
+                Playing: {activeMediaName}
+              </span>
+            )}
           </div>
           <p className="text-sm text-slate-400 mt-1">
             Trigger ads, play papare brass band music, and control the live TV scoreboard
@@ -211,7 +248,7 @@ export default function AdminPage() {
           />
           <button
             type="submit"
-            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm transition-colors"
+            className="px-4 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-sm transition-colors cursor-pointer"
           >
             Connect
           </button>
@@ -276,16 +313,30 @@ export default function AdminPage() {
               <span className="text-xs text-slate-400">{videoAds.length} ready</span>
             </div>
 
-            <label className="border-2 border-dashed border-slate-700 hover:border-amber-400 rounded-xl p-4 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors mb-4 block">
-              <span className="text-2xl">📹</span>
+            <label
+              onDragOver={(e) => handleDragOver(e, 'video')}
+              onDragLeave={(e) => handleDragLeave(e, 'video')}
+              onDrop={(e) => handleDrop(e, 'video')}
+              className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition-all mb-4 block ${
+                dragOverTypes['video']
+                  ? 'border-amber-400 bg-amber-400/10 scale-[1.02]'
+                  : 'border-slate-700 hover:border-amber-400 bg-slate-800/20'
+              }`}
+            >
+              <span className="text-2xl">{dragOverTypes['video'] ? '📥' : '📹'}</span>
               <span className="text-xs font-semibold text-slate-300">
-                Click to upload video ads (.mp4, .webm)
+                {dragOverTypes['video']
+                  ? 'Drop video ad files here'
+                  : 'Drag & drop or click to upload video ads (.mp4, .webm)'}
               </span>
               <input
                 type="file"
                 accept="video/*"
                 multiple
-                onChange={(e) => handleFileUpload(e, 'video')}
+                onChange={(e) => {
+                  if (e.target.files) processFiles(e.target.files, 'video');
+                  e.target.value = '';
+                }}
                 className="hidden"
               />
             </label>
@@ -302,7 +353,7 @@ export default function AdminPage() {
                     </span>
                     <button
                       onClick={() => playVideoAd(v)}
-                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors cursor-pointer"
                     >
                       ▶ Play
                     </button>
@@ -314,7 +365,7 @@ export default function AdminPage() {
 
           <button
             onClick={stopAd}
-            className="w-full mt-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold uppercase tracking-wider transition-colors"
+            className="w-full mt-4 py-2.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer"
           >
             ⏹ Stop Video Ad
           </button>
@@ -330,16 +381,30 @@ export default function AdminPage() {
               <span className="text-xs text-slate-400">{imageAds.length} ready</span>
             </div>
 
-            <label className="border-2 border-dashed border-slate-700 hover:border-amber-400 rounded-xl p-4 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors mb-4 block">
-              <span className="text-2xl">📸</span>
+            <label
+              onDragOver={(e) => handleDragOver(e, 'image')}
+              onDragLeave={(e) => handleDragLeave(e, 'image')}
+              onDrop={(e) => handleDrop(e, 'image')}
+              className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition-all mb-4 block ${
+                dragOverTypes['image']
+                  ? 'border-amber-400 bg-amber-400/10 scale-[1.02]'
+                  : 'border-slate-700 hover:border-amber-400 bg-slate-800/20'
+              }`}
+            >
+              <span className="text-2xl">{dragOverTypes['image'] ? '📥' : '📸'}</span>
               <span className="text-xs font-semibold text-slate-300">
-                Click to upload image ads (.jpg, .png)
+                {dragOverTypes['image']
+                  ? 'Drop image ad files here'
+                  : 'Drag & drop or click to upload image ads (.jpg, .png)'}
               </span>
               <input
                 type="file"
                 accept="image/*"
                 multiple
-                onChange={(e) => handleFileUpload(e, 'image')}
+                onChange={(e) => {
+                  if (e.target.files) processFiles(e.target.files, 'image');
+                  e.target.value = '';
+                }}
                 className="hidden"
               />
             </label>
@@ -356,7 +421,7 @@ export default function AdminPage() {
                     </span>
                     <button
                       onClick={() => playImageAd(img)}
-                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-emerald-600 hover:bg-emerald-500 text-white font-bold transition-colors cursor-pointer"
                     >
                       ▶ Play
                     </button>
@@ -370,10 +435,10 @@ export default function AdminPage() {
             <div className="flex items-center gap-2">
               <input
                 type="number"
-                min="5"
+                min="0"
                 max="300"
                 value={imageDuration}
-                onChange={(e) => setImageDuration(Number(e.target.value))}
+                onChange={(e) => setImageDuration(Math.max(0, Number(e.target.value) || 0))}
                 className="w-16 px-2 py-1 bg-slate-800 border border-slate-700 rounded-lg text-center text-xs font-bold"
               />
               <span className="text-[10px] text-slate-400 font-semibold uppercase">
@@ -383,7 +448,7 @@ export default function AdminPage() {
 
             <button
               onClick={stopAd}
-              className="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold uppercase transition-colors"
+              className="px-3 py-1.5 rounded-lg bg-rose-600/20 hover:bg-rose-600/30 text-rose-300 border border-rose-500/40 text-xs font-bold uppercase transition-colors cursor-pointer"
             >
               ⏹ Stop
             </button>
@@ -400,16 +465,30 @@ export default function AdminPage() {
               <span className="text-xs text-slate-400">{musicFiles.length} ready</span>
             </div>
 
-            <label className="border-2 border-dashed border-purple-800/60 hover:border-purple-400 rounded-xl p-4 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition-colors mb-4 block">
-              <span className="text-2xl">🎵</span>
+            <label
+              onDragOver={(e) => handleDragOver(e, 'music')}
+              onDragLeave={(e) => handleDragLeave(e, 'music')}
+              onDrop={(e) => handleDrop(e, 'music')}
+              className={`border-2 border-dashed rounded-xl p-4 text-center cursor-pointer flex flex-col items-center justify-center gap-2 transition-all mb-4 block ${
+                dragOverTypes['music']
+                  ? 'border-purple-400 bg-purple-500/10 scale-[1.02]'
+                  : 'border-purple-800/60 hover:border-purple-400 bg-purple-950/20'
+              }`}
+            >
+              <span className="text-2xl">{dragOverTypes['music'] ? '📥' : '🎵'}</span>
               <span className="text-xs font-semibold text-slate-300">
-                Click to upload Papare tracks (.mp3, .wav)
+                {dragOverTypes['music']
+                  ? 'Drop Papare tracks here'
+                  : 'Drag & drop or click to upload Papare tracks (.mp3, .wav)'}
               </span>
               <input
                 type="file"
                 accept="audio/*"
                 multiple
-                onChange={(e) => handleFileUpload(e, 'music')}
+                onChange={(e) => {
+                  if (e.target.files) processFiles(e.target.files, 'music');
+                  e.target.value = '';
+                }}
                 className="hidden"
               />
             </label>
@@ -426,7 +505,7 @@ export default function AdminPage() {
                     </span>
                     <button
                       onClick={() => playMusic(m)}
-                      className="px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white font-bold transition-colors"
+                      className="px-2.5 py-1 rounded-md bg-purple-600 hover:bg-purple-500 text-white font-bold transition-colors cursor-pointer"
                     >
                       ▶ Play
                     </button>
@@ -442,14 +521,14 @@ export default function AdminPage() {
                 type="checkbox"
                 checked={loopMusic}
                 onChange={(e) => setLoopMusic(e.target.checked)}
-                className="rounded accent-purple-500"
+                className="rounded accent-purple-500 cursor-pointer"
               />
               Loop music continuously until stopped
             </label>
 
             <button
               onClick={stopMusic}
-              className={`w-full py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-colors ${
+              className={`w-full py-2.5 rounded-xl border text-xs font-bold uppercase tracking-wider transition-colors cursor-pointer ${
                 isMusicPlaying
                   ? 'bg-rose-600 text-white border-rose-500 animate-pulse'
                   : 'bg-rose-600/20 text-rose-300 border-rose-500/40'
@@ -474,28 +553,28 @@ export default function AdminPage() {
                 loop: loopMusic,
               })
             }
-            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-purple-600/20"
+            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-purple-600/20 cursor-pointer"
           >
             🎺 Quick Papare Loop
           </button>
 
           <button
             onClick={stopMusic}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700"
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer"
           >
             🔇 Mute Music
           </button>
 
           <button
             onClick={stopAd}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700"
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer"
           >
             ⏹ Hide Current Ad
           </button>
 
           <button
             onClick={() => sendCommand('CLEAR_RESULT')}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700"
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer"
           >
             ✕ Clear Result Banner
           </button>
@@ -510,7 +589,7 @@ export default function AdminPage() {
           </h2>
           <button
             onClick={() => setLogs([])}
-            className="text-[10px] text-slate-500 hover:text-slate-300 uppercase font-bold"
+            className="text-[10px] text-slate-500 hover:text-slate-300 uppercase font-bold cursor-pointer"
           >
             Clear Log
           </button>

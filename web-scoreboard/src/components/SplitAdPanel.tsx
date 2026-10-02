@@ -1,4 +1,5 @@
-'use strict';
+'use client';
+
 import React from 'react';
 
 interface Props {
@@ -22,7 +23,7 @@ export const SplitAdPanel: React.FC<Props> = ({ isActive, type, src, onClose }) 
         </div>
         <button
           onClick={onClose}
-          className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors"
+          className="text-xs px-2.5 py-1 rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white transition-colors cursor-pointer"
         >
           ✕ Close
         </button>
@@ -39,6 +40,7 @@ export const SplitAdPanel: React.FC<Props> = ({ isActive, type, src, onClose }) 
             className="max-h-full max-w-full rounded-xl object-contain shadow-lg"
           />
         ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
           <img
             src={src}
             alt="Tournament Advertisement"

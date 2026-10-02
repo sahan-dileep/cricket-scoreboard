@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { ScoreData, AdminCommand } from '@/types/cricket';
 import { ScoreboardHeader } from '@/components/ScoreboardHeader';
@@ -13,12 +13,14 @@ import { StatsFooter } from '@/components/StatsFooter';
 import { SplitAdPanel } from '@/components/SplitAdPanel';
 import { MusicBar } from '@/components/MusicBar';
 import { ConnectionModal } from '@/components/ConnectionModal';
+import { ResultBanner } from '@/components/ResultBanner';
 
 const DEFAULT_SCORE: ScoreData = {
   match: {
     team1: 'Tech Titans',
     team2: 'Sales Strikers',
     status: 'IN_PROGRESS',
+    isCompleted: false,
     result: null,
   },
   currentInnings: {
@@ -94,6 +96,7 @@ export default function ScoreboardPage() {
   const [connStatus, setConnStatus] = useState<'connected' | 'connecting' | 'disconnected'>('disconnected');
   const [scoreData, setScoreData] = useState<ScoreData>(DEFAULT_SCORE);
   const [scoreFlash, setScoreFlash] = useState<boolean>(false);
+  const [resultDismissed, setResultDismissed] = useState<boolean>(false);
 
   // Ad State (Split screen)
   const [adActive, setAdActive] = useState<boolean>(false);
@@ -107,12 +110,15 @@ export default function ScoreboardPage() {
   const prevScoreRef = useRef<number>(DEFAULT_SCORE.currentInnings.score);
 
   useEffect(() => {
-    const savedIp = localStorage.getItem('cricket_android_ip');
-    if (savedIp) {
-      setAndroidIp(savedIp);
-    } else {
-      setIsModalOpen(true);
-    }
+    const timer = setTimeout(() => {
+      const savedIp = localStorage.getItem('cricket_android_ip');
+      if (savedIp) {
+        setAndroidIp(savedIp);
+      } else {
+        setIsModalOpen(true);
+      }
+    }, 0);
+    return () => clearTimeout(timer);
   }, []);
 
   const handleConnect = (ip: string) => {
@@ -120,6 +126,39 @@ export default function ScoreboardPage() {
     localStorage.setItem('cricket_android_ip', ip);
     setIsModalOpen(false);
   };
+
+  const handleAdminCommand = useCallback((cmd: AdminCommand) => {
+    switch (cmd.action) {
+      case 'PLAY_VIDEO_AD':
+        setAdType('video');
+        setAdSrc(cmd.src || null);
+        setAdActive(true);
+        break;
+      case 'PLAY_IMAGE_AD':
+        setAdType('image');
+        setAdSrc(cmd.src || null);
+        setAdActive(true);
+        break;
+      case 'STOP_AD':
+        setAdActive(false);
+        setAdSrc(null);
+        break;
+      case 'PLAY_MUSIC':
+        setMusicSrc(cmd.src || '/assets/music/papare_sample.mp3');
+        setMusicPlaying(true);
+        break;
+      case 'STOP_MUSIC':
+        setMusicPlaying(false);
+        break;
+      case 'CLEAR_RESULT':
+        setResultDismissed(true);
+        setScoreData((prev) => ({
+          ...prev,
+          match: { ...prev.match, result: null, isCompleted: false },
+        }));
+        break;
+    }
+  }, []);
 
   // 2s polling loop
   useEffect(() => {
@@ -149,6 +188,14 @@ export default function ScoreboardPage() {
             prevScoreRef.current = data.currentInnings?.score ?? 0;
           }
 
+          // If result changed or was newly set, reset dismissed state
+          if (
+            data.match?.result &&
+            JSON.stringify(data.match.result) !== JSON.stringify(scoreData.match?.result)
+          ) {
+            setResultDismissed(false);
+          }
+
           setScoreData(data);
 
           if (data.adminCommand) {
@@ -169,39 +216,12 @@ export default function ScoreboardPage() {
       isSubscribed = false;
       clearInterval(interval);
     };
-  }, [androidIp]);
+  }, [androidIp, handleAdminCommand, scoreData.match?.result]);
 
-  const handleAdminCommand = (cmd: AdminCommand) => {
-    switch (cmd.action) {
-      case 'PLAY_VIDEO_AD':
-        setAdType('video');
-        setAdSrc(cmd.src || null);
-        setAdActive(true);
-        break;
-      case 'PLAY_IMAGE_AD':
-        setAdType('image');
-        setAdSrc(cmd.src || null);
-        setAdActive(true);
-        break;
-      case 'STOP_AD':
-        setAdActive(false);
-        setAdSrc(null);
-        break;
-      case 'PLAY_MUSIC':
-        setMusicSrc(cmd.src || '/assets/music/papare_sample.mp3');
-        setMusicPlaying(true);
-        break;
-      case 'STOP_MUSIC':
-        setMusicPlaying(false);
-        break;
-      case 'CLEAR_RESULT':
-        setScoreData((prev) => ({
-          ...prev,
-          match: { ...prev.match, result: null },
-        }));
-        break;
-    }
-  };
+  const isMatchCompleted = Boolean(
+    scoreData.match?.isCompleted || scoreData.match?.status === 'COMPLETED'
+  );
+  const hasResult = Boolean(scoreData.match?.result);
 
   return (
     <main className="min-h-screen w-screen bg-slate-950 text-slate-100 flex flex-col p-4 md:p-6 overflow-x-hidden font-sans select-none">
@@ -224,7 +244,7 @@ export default function ScoreboardPage() {
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className={`text-xs px-3.5 py-1.5 rounded-full font-bold border flex items-center gap-2 transition-all ${
+            className={`text-xs px-3.5 py-1.5 rounded-full font-bold border flex items-center gap-2 transition-all cursor-pointer ${
               connStatus === 'connected'
                 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
                 : 'bg-rose-500/10 border-rose-500/40 text-rose-400'
@@ -288,6 +308,15 @@ export default function ScoreboardPage() {
           onClose={() => setAdActive(false)}
         />
       </div>
+
+      {/* Celebratory Result Banner when Match is Completed */}
+      {!resultDismissed && isMatchCompleted && hasResult && (
+        <ResultBanner
+          result={scoreData.match.result}
+          isCompleted={isMatchCompleted}
+          onDismiss={() => setResultDismissed(true)}
+        />
+      )}
 
       {/* Bottom Papare Music Animated Waveform Bar */}
       <MusicBar isPlaying={musicPlaying} audioSrc={musicSrc} loop={true} />

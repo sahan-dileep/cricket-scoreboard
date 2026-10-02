@@ -2,18 +2,17 @@ package com.cricket.scorer.data.model
 
 import androidx.room.Entity
 import androidx.room.PrimaryKey
-import androidx.room.TypeConverters
-import com.cricket.scorer.data.db.Converters
+import java.util.UUID
 
 // ════════════════════════════════════════
-//  Domain Models
+//  Room Database Entities
 // ════════════════════════════════════════
 
 @Entity(tableName = "tournaments")
 data class Tournament(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,
     val name: String,
-    val overs: Int = 10,           // Overs per side
+    val overs: Int = 10,           // Overs per side (10-15)
     val playersPerSide: Int = 11,
     val createdAt: Long = System.currentTimeMillis()
 )
@@ -54,7 +53,7 @@ data class BallEvent(
     val matchId: Int,
     val innings: Int,          // 1 or 2
     val overNumber: Int,       // 0-indexed
-    val ballNumber: Int,       // 0-indexed (legal balls only for counting)
+    val ballNumber: Int,       // 0-indexed (legal balls only)
     val runs: Int = 0,
     val extraType: ExtraType? = null,
     val extraRuns: Int = 0,
@@ -70,67 +69,37 @@ enum class ExtraType { WIDE, NO_BALL, BYE, LEG_BYE }
 enum class WicketType { BOWLED, CAUGHT, RUN_OUT, LBW, STUMPED, HIT_WICKET, RETIRED }
 
 // ════════════════════════════════════════
-//  Computed / Aggregate Models (not stored)
+//  Computed / Scorecard Data Models
 // ════════════════════════════════════════
 
 data class BatsmanScore(
-    val playerId: Int,
+    val playerId: Int = 0,
+    val id: Int = playerId,
     val playerName: String,
+    val name: String = playerName,
     val runs: Int = 0,
     val balls: Int = 0,
     val fours: Int = 0,
     val sixes: Int = 0,
     val isOut: Boolean = false,
     val dismissalInfo: String = "",
-    val onStrike: Boolean = false
-) {
-    val strikeRate: Double get() = if (balls > 0) (runs.toDouble() / balls) * 100 else 0.0
-}
+    val onStrike: Boolean = false,
+    val isStriker: Boolean = onStrike,
+    val strikeRate: Double = if (balls > 0) Math.round((runs.toDouble() / balls * 100) * 10.0) / 10.0 else 0.0
+)
 
 data class BowlerFigure(
-    val playerId: Int,
+    val playerId: Int = 0,
+    val id: Int = playerId,
     val playerName: String,
+    val name: String = playerName,
     val legalBalls: Int = 0,
+    val overs: String = "${legalBalls / 6}.${legalBalls % 6}",
+    val maidens: Int = 0,
     val runs: Int = 0,
     val wickets: Int = 0,
-    val maidens: Int = 0
-) {
-    val overs: String get() {
-        val ov = legalBalls / 6
-        val bl = legalBalls % 6
-        return "$ov.$bl"
-    }
-    val economy: Double get() {
-        val ov = legalBalls / 6.0
-        return if (ov > 0) runs / ov else 0.0
-    }
-}
-
-data class InningsSummary(
-    val innings: Int,
-    val battingTeamId: Int,
-    val battingTeamName: String,
-    val score: Int = 0,
-    val wickets: Int = 0,
-    val legalBalls: Int = 0,
-    val totalOvers: Int,
-    val extras: Int = 0,
-    val batsmen: List<BatsmanScore> = emptyList(),
-    val bowlers: List<BowlerFigure> = emptyList(),
-    val fallOfWickets: List<FallOfWicket> = emptyList(),
-    val recentBalls: List<OverBalls> = emptyList(),
-    val partnership: Partnership = Partnership()
-) {
-    val oversString: String get() {
-        val ov = legalBalls / 6
-        val bl = legalBalls % 6
-        return "$ov.$bl"
-    }
-    val runRate: Double get() {
-        val ov = legalBalls / 6.0
-        return if (ov > 0) score / ov else 0.0
-    }
-}
+    val economy: Double = if (legalBalls > 0) Math.round((runs.toDouble() / (legalBalls / 6.0)) * 100.0) / 100.0 else 0.0
+)
 
 data class FallOfWicket(
     val wicketNumber: Int,
@@ -144,14 +113,125 @@ data class Partnership(
     val balls: Int = 0
 )
 
+data class BallDisplay(
+    val label: String,   // "0","1","2","3","4","6","W","WD","NB","B","LB"
+    val text: String = label,
+    val runs: Int = 0,
+    val isWicket: Boolean = false,
+    val isExtra: Boolean = false,
+    val color: String = "grey",
+    val isNew: Boolean = false
+)
+
 data class OverBalls(
     val overNumber: Int,
     val balls: List<BallDisplay>
 )
 
-data class BallDisplay(
-    val label: String,   // "0","1","2","3","4","6","W","WD","NB"
-    val isNew: Boolean = false
+data class InningsSummary(
+    val innings: Int,
+    val battingTeamId: Int,
+    val battingTeamName: String,
+    val battingTeam: String = battingTeamName,
+    val bowlingTeam: String = "",
+    val score: Int = 0,
+    val totalRuns: Int = score,
+    val wickets: Int = 0,
+    val totalWickets: Int = wickets,
+    val legalBalls: Int = 0,
+    val totalBalls: Int = legalBalls,
+    val currentOverBalls: Int = legalBalls % 6,
+    val totalOvers: Int,
+    val overs: String = "${legalBalls / 6}.${legalBalls % 6}",
+    val oversString: String = overs,
+    val extras: Int = 0,
+    val runRate: Double = if (legalBalls > 0) Math.round((score.toDouble() / (legalBalls / 6.0)) * 100.0) / 100.0 else 0.0,
+    val lastWicket: String? = null,
+    val requiredRuns: Int? = null,
+    val requiredOvers: Double? = null,
+    val requiredRunRate: Double? = null,
+    val batsmen: List<BatsmanScore> = emptyList(),
+    val bowlers: List<BowlerFigure> = emptyList(),
+    val currentBowler: BowlerFigure? = null,
+    val fallOfWickets: List<FallOfWicket> = emptyList(),
+    val recentBalls: List<OverBalls> = emptyList(),
+    val partnership: Partnership = Partnership()
+)
+
+data class AdminCommand(
+    val id: String = UUID.randomUUID().toString(),
+    val action: String,
+    val type: String = action,
+    val command: String = action,
+    val src: String? = null,
+    val loop: Boolean = false,
+    val payload: Map<String, Any?>? = null,
+    val timestamp: Long = System.currentTimeMillis()
+)
+
+data class MatchDto(
+    val id: Int,
+    val team1: String,
+    val team2: String,
+    val totalOvers: Int,
+    val currentInnings: Int,
+    val isCompleted: Boolean,
+    val status: String,
+    val result: String? = null,
+    val innings1: Innings1Dto? = null
+)
+
+data class Innings1Dto(
+    val score: Int,
+    val wickets: Int,
+    val overs: String
+)
+
+data class ChaseDto(
+    val targetRuns: Int,
+    val runsNeeded: Int,
+    val ballsRemaining: Int,
+    val requiredRunRate: Double
+)
+
+data class ScoreResponse(
+    val match: MatchDto,
+    val currentInnings: InningsSummary,
+    val batting: List<BatsmanScore> = currentInnings.batsmen,
+    val bowler: BowlerFigure? = currentInnings.currentBowler,
+    val partnership: Partnership = currentInnings.partnership,
+    val recentBalls: List<OverBalls> = currentInnings.recentBalls,
+    val chase: ChaseDto? = null,
+    val adminCommand: AdminCommand? = null
+)
+
+data class TournamentStanding(
+    val team: Team,
+    val played: Int = 0,
+    val won: Int = 0,
+    val lost: Int = 0,
+    val tied: Int = 0,
+    val noResult: Int = 0,
+    val points: Int = 0,
+    val nrr: Double = 0.0
+)
+
+data class TournamentStandingDto(
+    val teamName: String,
+    val played: Int,
+    val won: Int,
+    val lost: Int,
+    val tied: Int,
+    val points: Int,
+    val nrr: Double
+)
+
+data class TournamentResponse(
+    val tournamentId: Int,
+    val name: String,
+    val overs: Int,
+    val teams: List<String>,
+    val standings: List<TournamentStandingDto>
 )
 
 data class MatchState(
@@ -164,21 +244,4 @@ data class MatchState(
     val innings2: InningsSummary? = null,
     val currentInnings: InningsSummary? = null,
     val adminCommand: AdminCommand? = null
-)
-
-data class AdminCommand(
-    val action: String,    // PLAY_VIDEO_AD, PLAY_IMAGE_AD, STOP_AD, PLAY_MUSIC, STOP_MUSIC
-    val src: String? = null,
-    val loop: Boolean = false
-)
-
-data class TournamentStanding(
-    val team: Team,
-    val played: Int = 0,
-    val won: Int = 0,
-    val lost: Int = 0,
-    val tied: Int = 0,
-    val noResult: Int = 0,
-    val points: Int = 0,
-    val nrr: Double = 0.0   // Net Run Rate
 )

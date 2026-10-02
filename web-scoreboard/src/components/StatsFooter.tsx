@@ -2,10 +2,10 @@
 import React from 'react';
 
 interface Props {
-  runRate?: number;
-  overs?: string;
-  extras?: number;
-  lastWicket?: string;
+  runRate?: number | null;
+  overs?: string | null;
+  extras?: number | null;
+  lastWicket?: string | null;
   requiredRunRate?: number | null;
 }
 
@@ -20,7 +20,7 @@ export const StatsFooter: React.FC<Props> = ({
     <footer className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 bg-slate-900/90 border border-slate-700/80 rounded-2xl overflow-hidden shadow-2xl divide-x divide-slate-800">
       <div className="p-4 text-center">
         <div className="text-2xl font-black text-amber-400 tabular-nums">
-          {runRate !== undefined ? runRate.toFixed(2) : '—'}
+          {runRate !== undefined && runRate !== null ? runRate.toFixed(2) : '—'}
         </div>
         <div className="text-[10px] font-bold uppercase text-slate-400 tracking-wider mt-1">
           Current Run Rate

@@ -17,6 +17,7 @@ import com.cricket.scorer.data.db.CricketDatabase
 import com.cricket.scorer.data.repository.CricketRepository
 import com.cricket.scorer.server.CricketHttpServer
 import com.cricket.scorer.ui.home.HomeScreen
+import com.cricket.scorer.ui.teams.ManageTeamsScreen
 import com.cricket.scorer.ui.scorecard.ScorecardScreen
 import com.cricket.scorer.ui.scoring.ScoringScreen
 import com.cricket.scorer.ui.setup.SetupScreen
@@ -91,7 +92,8 @@ fun CricketScorerApp(repository: CricketRepository) {
                 onNavigateToSetup = { navController.navigate("setup") },
                 onNavigateToScoring = { matchId -> navController.navigate("scoring/$matchId") },
                 onNavigateToScorecard = { matchId -> navController.navigate("scorecard/$matchId") },
-                onNavigateToTournament = { tId -> navController.navigate("tournament/$tId") }
+                onNavigateToTournament = { tId -> navController.navigate("tournament/$tId") },
+                onNavigateToManageTeams = { navController.navigate("manage_teams") }
             )
         }
 
@@ -103,7 +105,15 @@ fun CricketScorerApp(repository: CricketRepository) {
                     navController.navigate("scoring/$matchId") {
                         popUpTo("home")
                     }
-                }
+                },
+                onNavigateToManageTeams = { navController.navigate("manage_teams") }
+            )
+        }
+
+        composable("manage_teams") {
+            ManageTeamsScreen(
+                repository = repository,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
 

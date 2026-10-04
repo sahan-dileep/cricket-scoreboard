@@ -49,6 +49,15 @@ class CricketHttpServer(
                 method == Method.GET && (uri == "/api/tournament" || uri == "/api/tournament/") -> {
                     handleGetTournament(session)
                 }
+                method == Method.GET && (uri == "/api/teams" || uri == "/api/teams/") -> {
+                    handleGetTeams()
+                }
+                method == Method.POST && (uri == "/api/teams" || uri == "/api/teams/") -> {
+                    handlePostTeam(session)
+                }
+                method == Method.DELETE && (uri == "/api/teams" || uri == "/api/teams/") -> {
+                    handleDeleteTeam(session)
+                }
                 else -> {
                     newFixedLengthResponse(
                         Response.Status.NOT_FOUND,
@@ -195,9 +204,88 @@ class CricketHttpServer(
         )
     }
 
+    private fun handleGetTeams(): Response {
+        val teams = runBlocking {
+            repository.getAllTeamsWithPlayers()
+        }
+        return newFixedLengthResponse(
+            Response.Status.OK,
+            "application/json",
+            gson.toJson(teams)
+        )
+    }
+
+    private fun handlePostTeam(session: IHTTPSession): Response {
+        val files = HashMap<String, String>()
+        session.parseBody(files)
+        val body = files["postData"] ?: ""
+        if (body.isBlank()) {
+            return newFixedLengthResponse(
+                Response.Status.BAD_REQUEST,
+                "application/json",
+                "{\"error\":\"Empty request body\"}"
+            )
+        }
+
+        val json = JsonParser.parseString(body).asJsonObject
+        val teamId = if (json.has("id") && !json.get("id").isJsonNull) json.get("id").asInt else null
+        val name = if (json.has("name")) json.get("name").asString else "Unnamed Team"
+        val playersList = mutableListOf<String>()
+        if (json.has("players") && json.get("players").isJsonArray) {
+            val arr = json.getAsJsonArray("players")
+            for (p in arr) {
+                playersList.add(p.asString)
+            }
+        }
+
+        val savedId = runBlocking {
+            repository.saveTeamWithPlayers(
+                teamId = teamId,
+                name = name,
+                playerNames = playersList
+            )
+        }
+
+        return newFixedLengthResponse(
+            Response.Status.OK,
+            "application/json",
+            "{\"success\":true,\"id\":$savedId}"
+        )
+    }
+
+    private fun handleDeleteTeam(session: IHTTPSession): Response {
+        val idParam = session.parameters["id"]?.firstOrNull()?.toIntOrNull()
+        val id = if (idParam != null) {
+            idParam
+        } else {
+            val files = HashMap<String, String>()
+            session.parseBody(files)
+            val body = files["postData"] ?: ""
+            if (body.isNotBlank()) {
+                val json = JsonParser.parseString(body).asJsonObject
+                if (json.has("id")) json.get("id").asInt else null
+            } else null
+        }
+
+        if (id != null) {
+            runBlocking { repository.deleteTeam(id) }
+            return newFixedLengthResponse(
+                Response.Status.OK,
+                "application/json",
+                "{\"success\":true}"
+            )
+        } else {
+            return newFixedLengthResponse(
+                Response.Status.BAD_REQUEST,
+                "application/json",
+                "{\"error\":\"Missing team id\"}"
+            )
+        }
+    }
+
     private fun addCorsHeaders(response: Response) {
         response.addHeader("Access-Control-Allow-Origin", "*")
-        response.addHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+        response.addHeader("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
         response.addHeader("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
     }
 }

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { MediaItem, AdminActionType, ScoreData } from '@/types/cricket';
+import { MediaItem, AdminActionType, ScoreData, TeamData } from '@/types/cricket';
 
 export default function AdminPage() {
   const [androidIp, setAndroidIp] = useState<string>('');
@@ -11,6 +11,33 @@ export default function AdminPage() {
 
   // Mini Score Preview
   const [previewScore, setPreviewScore] = useState<ScoreData | null>(null);
+
+  // Teams & Rosters State
+  const [teams, setTeams] = useState<TeamData[]>([
+    {
+      id: 1,
+      name: 'Tech Titans',
+      players: [
+        'D. Mendis', 'S. Fernando', 'K. Perera', 'C. Asalanka', 'B. Rajapaksa',
+        'D. Shanaka', 'W. Hasaranga', 'C. Karunaratne', 'D. Chameera', 'M. Theekshana', 'L. Kumara'
+      ]
+    },
+    {
+      id: 2,
+      name: 'Sales Strikers',
+      players: [
+        'P. Nissanka', 'K. Mendis', 'S. Samarawickrama', 'C. Silva', 'A. Mathews',
+        'D. de Silva', 'K. Rajitha', 'M. Pathirana', 'P. Jayawickrama', 'N. Pradeep', 'B. Fernando'
+      ]
+    }
+  ]);
+  const [loadingTeams, setLoadingTeams] = useState<boolean>(false);
+  const [isTeamModalOpen, setIsTeamModalOpen] = useState<boolean>(false);
+  const [editingTeam, setEditingTeam] = useState<TeamData | null>(null);
+  const [teamFormName, setTeamFormName] = useState<string>('');
+  const [teamFormPlayers, setTeamFormPlayers] = useState<string>('');
+  const [teamToDelete, setTeamToDelete] = useState<TeamData | null>(null);
+  const jsonInputRef = useRef<HTMLInputElement | null>(null);
 
   // Media Libraries
   const [videoAds, setVideoAds] = useState<MediaItem[]>([]);
@@ -36,12 +63,186 @@ export default function AdminPage() {
     setLogs((prev) => [{ id: Math.random().toString(), time, msg, type }, ...prev.slice(0, 49)]);
   };
 
+  const fetchTeams = async (ipToUse?: string) => {
+    const ip = ipToUse || androidIp;
+    if (!ip) {
+      const cached = localStorage.getItem('cricket_teams_cache');
+      if (cached) {
+        try { setTeams(JSON.parse(cached)); } catch {}
+      }
+      return;
+    }
+    setLoadingTeams(true);
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 3000);
+      const res = await fetch(`http://${ip}:8080/api/teams`, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (res.ok) {
+        const data: TeamData[] = await res.json();
+        if (Array.isArray(data) && data.length > 0) {
+          setTeams(data);
+          localStorage.setItem('cricket_teams_cache', JSON.stringify(data));
+          addLog(`Loaded ${data.length} team(s) from Scorer app`, 'success');
+        }
+      }
+    } catch {
+      const cached = localStorage.getItem('cricket_teams_cache');
+      if (cached) {
+        try { setTeams(JSON.parse(cached)); } catch {}
+      }
+    } finally {
+      setLoadingTeams(false);
+    }
+  };
+
+  const openAddTeamModal = () => {
+    setEditingTeam(null);
+    setTeamFormName('');
+    setTeamFormPlayers('');
+    setIsTeamModalOpen(true);
+  };
+
+  const openEditTeamModal = (team: TeamData) => {
+    setEditingTeam(team);
+    setTeamFormName(team.name);
+    setTeamFormPlayers(team.players ? team.players.join('\n') : '');
+    setIsTeamModalOpen(true);
+  };
+
+  const prefillSamplePlayers = () => {
+    setTeamFormPlayers(
+      'D. Mendis\nS. Fernando\nK. Perera\nC. Asalanka\nB. Rajapaksa\nD. Shanaka\nW. Hasaranga\nC. Karunaratne\nD. Chameera\nM. Theekshana\nL. Kumara'
+    );
+  };
+
+  const handleSaveTeam = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!teamFormName.trim()) return;
+
+    const playersList = teamFormPlayers
+      .split('\n')
+      .map((p) => p.trim())
+      .filter((p) => p.length > 0);
+
+    const payload: TeamData = {
+      id: editingTeam?.id,
+      name: teamFormName.trim(),
+      players: playersList,
+    };
+
+    if (androidIp) {
+      try {
+        const res = await fetch(`http://${androidIp}:8080/api/teams`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (res.ok) {
+          addLog(`Team "${payload.name}" saved to Android Scorer app`, 'success');
+          await fetchTeams();
+          setIsTeamModalOpen(false);
+          return;
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        addLog(`Failed to save to Scorer: ${errMsg}`, 'error');
+      }
+    }
+
+    // Save locally if offline
+    let updated: TeamData[];
+    if (editingTeam?.id) {
+      updated = teams.map((t) => (t.id === editingTeam.id ? payload : t));
+    } else {
+      payload.id = Date.now();
+      updated = [...teams, payload];
+    }
+    setTeams(updated);
+    localStorage.setItem('cricket_teams_cache', JSON.stringify(updated));
+    addLog(`Team "${payload.name}" saved locally (${playersList.length} players)`, 'info');
+    setIsTeamModalOpen(false);
+  };
+
+  const handleDeleteTeam = async (team: TeamData) => {
+    if (androidIp && team.id) {
+      try {
+        const res = await fetch(`http://${androidIp}:8080/api/teams?id=${team.id}`, {
+          method: 'DELETE',
+        });
+        if (res.ok) {
+          addLog(`Team "${team.name}" deleted from Android Scorer`, 'success');
+          await fetchTeams();
+          setTeamToDelete(null);
+          return;
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        addLog(`Failed to delete on Scorer: ${errMsg}`, 'error');
+      }
+    }
+
+    const updated = teams.filter((t) => t.id !== team.id && t.name !== team.name);
+    setTeams(updated);
+    localStorage.setItem('cricket_teams_cache', JSON.stringify(updated));
+    addLog(`Team "${team.name}" deleted locally`, 'info');
+    setTeamToDelete(null);
+  };
+
+  const exportTeamsJson = () => {
+    const dataStr = 'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(teams, null, 2));
+    const a = document.createElement('a');
+    a.setAttribute('href', dataStr);
+    a.setAttribute('download', 'cricket_teams_rosters.json');
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    addLog('Exported teams & rosters JSON file', 'success');
+  };
+
+  const importTeamsJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = async (evt) => {
+      try {
+        const parsed = JSON.parse(evt.target?.result as string);
+        if (Array.isArray(parsed)) {
+          setTeams(parsed);
+          localStorage.setItem('cricket_teams_cache', JSON.stringify(parsed));
+          addLog(`Imported ${parsed.length} team(s) from JSON file`, 'success');
+          if (androidIp) {
+            for (const t of parsed) {
+              await fetch(`http://${androidIp}:8080/api/teams`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(t),
+              });
+            }
+            await fetchTeams();
+          }
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        addLog(`Invalid JSON file: ${errMsg}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
+  };
+
   useEffect(() => {
     const timer = setTimeout(() => {
       const saved = localStorage.getItem('cricket_android_ip');
       if (saved) {
         setAndroidIp(saved);
         setIpInput(saved);
+        fetchTeams(saved);
+      } else {
+        const cached = localStorage.getItem('cricket_teams_cache');
+        if (cached) {
+          try { setTeams(JSON.parse(cached)); } catch {}
+        }
       }
       addLog('Admin console initialized. Ready to connect.', 'info');
     }, 0);
@@ -54,6 +255,7 @@ export default function AdminPage() {
     setAndroidIp(ipInput.trim());
     localStorage.setItem('cricket_android_ip', ipInput.trim());
     addLog(`Target Android IP set to: ${ipInput.trim()}`, 'success');
+    fetchTeams(ipInput.trim());
   };
 
   // Preview polling loop
@@ -300,6 +502,121 @@ export default function AdminPage() {
           </div>
         </div>
       )}
+
+      {/* Tournament Teams & Rosters Management Section */}
+      <div className="mb-6 p-5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-4 border-b border-slate-800 gap-4 mb-4">
+          <div className="flex items-center gap-3">
+            <span className="text-2xl">👥</span>
+            <div>
+              <h2 className="text-lg font-black uppercase tracking-wider text-amber-400">
+                Tournament Teams &amp; Rosters
+              </h2>
+              <p className="text-xs text-slate-400">
+                Configure teams and player lists prior to the tournament — synced directly with the Android Scorer
+              </p>
+            </div>
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 font-bold border border-slate-700">
+              {teams.length} Teams
+            </span>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              onClick={openAddTeamModal}
+              className="px-3.5 py-2 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 font-bold text-xs uppercase tracking-wider transition-colors shadow-md shadow-amber-400/20 cursor-pointer flex items-center gap-1.5"
+            >
+              <span>+</span> Add New Team
+            </button>
+
+            <button
+              onClick={() => fetchTeams()}
+              disabled={loadingTeams}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer flex items-center gap-1.5"
+            >
+              <span className={loadingTeams ? 'animate-spin' : ''}>🔄</span> {loadingTeams ? 'Syncing...' : 'Sync Scorer'}
+            </button>
+
+            <button
+              onClick={exportTeamsJson}
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors border border-slate-700 cursor-pointer"
+              title="Export all rosters to JSON"
+            >
+              📥 Export
+            </button>
+
+            <label
+              className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors border border-slate-700 cursor-pointer"
+              title="Import rosters from JSON"
+            >
+              📤 Import
+              <input
+                ref={jsonInputRef}
+                type="file"
+                accept="application/json"
+                onChange={importTeamsJson}
+                className="hidden"
+              />
+            </label>
+          </div>
+        </div>
+
+        {teams.length === 0 ? (
+          <div className="text-center py-8 text-slate-500 text-sm">
+            No teams configured yet. Click &quot;+ Add New Team&quot; to get started!
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {teams.map((team, idx) => (
+              <div
+                key={team.id || idx}
+                className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/70 flex flex-col justify-between"
+              >
+                <div>
+                  <div className="flex items-center justify-between pb-2 border-b border-slate-700/50 mb-2">
+                    <span className="font-bold text-base text-amber-400 truncate">
+                      {team.name}
+                    </span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                      {team.players?.length || 0} Players
+                    </span>
+                  </div>
+
+                  <div className="text-xs text-slate-300 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
+                    {team.players && team.players.length > 0 ? (
+                      team.players.map((pName, pIdx) => (
+                        <span
+                          key={pIdx}
+                          className="px-2 py-0.5 rounded bg-slate-700/60 text-slate-200 text-[11px]"
+                        >
+                          {pName}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-slate-500 italic">No players listed</span>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-end gap-2 mt-3 pt-2 border-t border-slate-700/50">
+                  <button
+                    onClick={() => openEditTeamModal(team)}
+                    className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    ✏️ Edit
+                  </button>
+                  <button
+                    onClick={() => setTeamToDelete(team)}
+                    className="px-2.5 py-1 rounded bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 text-xs font-semibold transition-colors cursor-pointer"
+                  >
+                    🗑️ Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
 
       {/* Grid of Control Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -615,6 +932,113 @@ export default function AdminPage() {
           ))}
         </div>
       </div>
+
+      {/* Team Create / Edit Modal */}
+      {isTeamModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-lg bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl text-slate-100 animate-in fade-in duration-200">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+              <h3 className="text-lg font-black text-amber-400 uppercase tracking-wide flex items-center gap-2">
+                <span>{editingTeam ? '✏️ Edit Team & Roster' : '➕ Create New Team'}</span>
+              </h3>
+              <button
+                onClick={() => setIsTeamModalOpen(false)}
+                className="text-slate-400 hover:text-white text-lg font-bold"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveTeam} className="flex flex-col gap-4">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-300 mb-1">
+                  Team Name
+                </label>
+                <input
+                  type="text"
+                  value={teamFormName}
+                  onChange={(e) => setTeamFormName(e.target.value)}
+                  placeholder="e.g. Finance Fighters"
+                  required
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 font-semibold focus:outline-none focus:border-amber-400"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold uppercase text-slate-300">
+                    Players (one per line)
+                  </label>
+                  <button
+                    type="button"
+                    onClick={prefillSamplePlayers}
+                    className="text-[11px] text-amber-400 hover:text-amber-300 font-semibold underline cursor-pointer"
+                  >
+                    Prefill Sample 11
+                  </button>
+                </div>
+                <textarea
+                  value={teamFormPlayers}
+                  onChange={(e) => setTeamFormPlayers(e.target.value)}
+                  rows={8}
+                  placeholder={'Player 1\nPlayer 2\nPlayer 3...'}
+                  className="w-full px-4 py-2.5 bg-slate-800 border border-slate-700 rounded-xl text-slate-100 font-mono text-sm focus:outline-none focus:border-amber-400 leading-relaxed"
+                />
+                <div className="flex items-center justify-between mt-1 text-xs text-slate-400">
+                  <span>
+                    Count: <strong className="text-amber-400">{teamFormPlayers.split('\n').filter((p) => p.trim()).length}</strong> players
+                  </span>
+                  <span className="text-[11px]">Recommended: 11 players</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsTeamModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-amber-400 hover:bg-amber-300 text-slate-950 text-xs font-black uppercase tracking-wider transition-colors shadow-lg shadow-amber-400/20"
+                >
+                  Save Team
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {teamToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+          <div className="w-full max-w-sm bg-slate-900 border border-slate-700 rounded-3xl p-6 shadow-2xl text-slate-100 animate-in fade-in duration-200">
+            <h3 className="text-base font-bold text-rose-400 mb-2">Delete Team?</h3>
+            <p className="text-sm text-slate-300 mb-5 leading-relaxed">
+              Are you sure you want to delete <strong className="text-amber-400">&quot;{teamToDelete.name}&quot;</strong> and all of its players?
+            </p>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => setTeamToDelete(null)}
+                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold uppercase transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDeleteTeam(teamToDelete)}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold uppercase tracking-wider transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }

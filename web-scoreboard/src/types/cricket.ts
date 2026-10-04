@@ -111,3 +111,11 @@ export interface MediaItem {
   url: string;
   type: 'video' | 'image' | 'music';
 }
+
+export interface TeamData {
+  id?: number;
+  name: string;
+  tournamentId?: number;
+  players: string[];
+}
+

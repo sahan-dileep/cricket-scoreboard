@@ -40,12 +40,19 @@ interface TeamDao {
     suspend fun insertAll(teams: List<Team>)
 
     @Update suspend fun update(team: Team)
+    @Delete suspend fun delete(team: Team)
 
     @Query("SELECT * FROM teams WHERE tournamentId = :tournamentId")
     suspend fun getByTournament(tournamentId: Int): List<Team>
 
+    @Query("SELECT * FROM teams ORDER BY id ASC")
+    suspend fun getAll(): List<Team>
+
     @Query("SELECT * FROM teams WHERE id = :id")
     suspend fun getById(id: Int): Team?
+
+    @Query("DELETE FROM teams WHERE id = :id")
+    suspend fun deleteById(id: Int)
 }
 
 @Dao
@@ -61,6 +68,12 @@ interface PlayerDao {
 
     @Query("SELECT * FROM players WHERE teamId = :teamId ORDER BY battingOrder")
     suspend fun getByTeam(teamId: Int): List<Player>
+
+    @Query("DELETE FROM players WHERE teamId = :teamId")
+    suspend fun deleteByTeam(teamId: Int)
+
+    @Query("SELECT * FROM players ORDER BY teamId, battingOrder")
+    suspend fun getAll(): List<Player>
 
     @Query("SELECT * FROM players WHERE id = :id")
     suspend fun getById(id: Int): Player?

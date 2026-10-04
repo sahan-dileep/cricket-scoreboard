@@ -29,7 +29,8 @@ fun HomeScreen(
     onNavigateToSetup: () -> Unit,
     onNavigateToScoring: (Int) -> Unit,
     onNavigateToScorecard: (Int) -> Unit,
-    onNavigateToTournament: (Int) -> Unit
+    onNavigateToTournament: (Int) -> Unit,
+    onNavigateToManageTeams: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
@@ -199,6 +200,19 @@ fun HomeScreen(
                 Icon(Icons.Default.AddCircle, contentDescription = null)
                 Spacer(modifier = Modifier.width(8.dp))
                 Text("New Tournament / Match", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            }
+
+            OutlinedButton(
+                onClick = onNavigateToManageTeams,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(50.dp),
+                colors = ButtonDefaults.outlinedButtonColors(contentColor = PitchAmber),
+                shape = RoundedCornerShape(10.dp)
+            ) {
+                Icon(Icons.Default.Person, contentDescription = null, tint = PitchAmber)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text("Manage Teams & Rosters", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = PitchAmber)
             }
 
             if (latestMatch != null) {

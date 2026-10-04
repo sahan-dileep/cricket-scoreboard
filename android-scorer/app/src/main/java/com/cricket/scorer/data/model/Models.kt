@@ -24,6 +24,13 @@ data class Team(
     val name: String
 )
 
+data class TeamWithPlayers(
+    val id: Int = 0,
+    val name: String,
+    val tournamentId: Int = 0,
+    val players: List<String> = emptyList()
+)
+
 @Entity(tableName = "players")
 data class Player(
     @PrimaryKey(autoGenerate = true) val id: Int = 0,

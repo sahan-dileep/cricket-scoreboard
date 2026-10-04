@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -25,7 +26,8 @@ import kotlinx.coroutines.launch
 fun SetupScreen(
     repository: CricketRepository,
     onNavigateBack: () -> Unit,
-    onMatchStarted: (Int) -> Unit
+    onMatchStarted: (Int) -> Unit,
+    onNavigateToManageTeams: () -> Unit = {}
 ) {
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
@@ -45,6 +47,21 @@ fun SetupScreen(
         mutableStateOf(
             "P. Nissanka\nK. Mendis\nS. Samarawickrama\nC. Silva\nA. Mathews\nD. de Silva\nK. Rajitha\nM. Pathirana\nP. Jayawickrama\nN. Pradeep\nB. Fernando"
         )
+    }
+
+    var savedTeams by remember { mutableStateOf<List<com.cricket.scorer.data.model.TeamWithPlayers>>(emptyList()) }
+
+    LaunchedEffect(Unit) {
+        val loaded = repository.getAllTeamsWithPlayers()
+        savedTeams = loaded
+        if (loaded.isNotEmpty()) {
+            team1Name = loaded[0].name
+            team1PlayersText = loaded[0].players.joinToString("\n")
+            if (loaded.size > 1) {
+                team2Name = loaded[1].name
+                team2PlayersText = loaded[1].players.joinToString("\n")
+            }
+        }
     }
 
     var tossWinnerTeam by remember { mutableStateOf(1) } // 1 for Team 1, 2 for Team 2
@@ -124,7 +141,41 @@ fun SetupScreen(
                 shape = RoundedCornerShape(12.dp)
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Teams & Rosters", color = PitchAmber, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Teams & Rosters", color = PitchAmber, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        TextButton(onClick = onNavigateToManageTeams) {
+                            Icon(Icons.Default.Person, contentDescription = null, tint = PitchAmberLight, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Manage Teams", color = PitchAmberLight, fontSize = 12.sp)
+                        }
+                    }
+
+                    if (savedTeams.isNotEmpty()) {
+                        Text("Pick Saved Team 1:", color = SlateGray, fontSize = 12.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            savedTeams.forEach { st ->
+                                FilterChip(
+                                    selected = team1Name == st.name,
+                                    onClick = {
+                                        team1Name = st.name
+                                        team1PlayersText = st.players.joinToString("\n")
+                                    },
+                                    label = { Text(st.name) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CricketGreen,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                    }
 
                     OutlinedTextField(
                         value = team1Name,
@@ -154,6 +205,29 @@ fun SetupScreen(
                     )
 
                     HorizontalDivider(color = SlateGray.copy(alpha = 0.3f), modifier = Modifier.padding(vertical = 4.dp))
+
+                    if (savedTeams.isNotEmpty()) {
+                        Text("Pick Saved Team 2:", color = SlateGray, fontSize = 12.sp)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            savedTeams.forEach { st ->
+                                FilterChip(
+                                    selected = team2Name == st.name,
+                                    onClick = {
+                                        team2Name = st.name
+                                        team2PlayersText = st.players.joinToString("\n")
+                                    },
+                                    label = { Text(st.name) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CricketGreen,
+                                        selectedLabelColor = Color.White
+                                    )
+                                )
+                            }
+                        }
+                    }
 
                     OutlinedTextField(
                         value = team2Name,

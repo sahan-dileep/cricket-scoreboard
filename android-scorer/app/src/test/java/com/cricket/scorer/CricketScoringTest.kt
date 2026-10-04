@@ -335,6 +335,13 @@ class FakeTeamDao : TeamDao {
         val idx = items.indexOfFirst { it.id == team.id }
         if (idx >= 0) items[idx] = team
     }
+    override suspend fun delete(team: Team) {
+        items.removeAll { it.id == team.id }
+    }
+    override suspend fun getAll(): List<Team> = items.toList()
+    override suspend fun deleteById(id: Int) {
+        items.removeAll { it.id == id }
+    }
     override suspend fun getByTournament(tournamentId: Int): List<Team> =
         items.filter { it.tournamentId == tournamentId }
     override suspend fun getById(id: Int): Team? = items.find { it.id == id }
@@ -357,6 +364,10 @@ class FakePlayerDao : PlayerDao {
     override suspend fun delete(player: Player) {
         items.removeAll { it.id == player.id }
     }
+    override suspend fun deleteByTeam(teamId: Int) {
+        items.removeAll { it.teamId == teamId }
+    }
+    override suspend fun getAll(): List<Player> = items.toList()
     override suspend fun getByTeam(teamId: Int): List<Player> =
         items.filter { it.teamId == teamId }.sortedBy { it.battingOrder }
     override suspend fun getById(id: Int): Player? = items.find { it.id == id }

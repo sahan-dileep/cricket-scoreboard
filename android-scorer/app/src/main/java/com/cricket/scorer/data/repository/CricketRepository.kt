@@ -61,6 +61,66 @@ class CricketRepository(
     suspend fun getTeams(tournamentId: Int): List<Team> = teamDao.getByTournament(tournamentId)
     suspend fun getPlayers(teamId: Int): List<Player> = playerDao.getByTeam(teamId)
 
+    suspend fun getAllTeams(): List<Team> = teamDao.getAll()
+
+    suspend fun getAllTeamsWithPlayers(): List<TeamWithPlayers> {
+        seedDefaultTeamsIfEmpty()
+        val teams = teamDao.getAll()
+        return teams.map { team ->
+            val players = playerDao.getByTeam(team.id).map { it.name }
+            TeamWithPlayers(team.id, team.name, team.tournamentId, players)
+        }
+    }
+
+    suspend fun saveTeamWithPlayers(teamId: Int?, name: String, playerNames: List<String>, tournamentId: Int = 0): Int {
+        val id = if (teamId != null && teamId > 0) {
+            val existing = teamDao.getById(teamId)
+            if (existing != null) {
+                teamDao.update(existing.copy(name = name.trim()))
+                teamId
+            } else {
+                teamDao.insert(Team(name = name.trim(), tournamentId = tournamentId)).toInt()
+            }
+        } else {
+            teamDao.insert(Team(name = name.trim(), tournamentId = tournamentId)).toInt()
+        }
+
+        playerDao.deleteByTeam(id)
+        val validPlayers = playerNames.map { it.trim() }.filter { it.isNotBlank() }
+        val playerEntities = validPlayers.mapIndexed { index, pName ->
+            Player(teamId = id, name = pName, battingOrder = index + 1)
+        }
+        playerDao.insertAll(playerEntities)
+        return id
+    }
+
+    suspend fun deleteTeam(teamId: Int) {
+        playerDao.deleteByTeam(teamId)
+        teamDao.deleteById(teamId)
+    }
+
+    suspend fun seedDefaultTeamsIfEmpty() {
+        val existing = teamDao.getAll()
+        if (existing.isEmpty()) {
+            saveTeamWithPlayers(
+                teamId = null,
+                name = "Tech Titans",
+                playerNames = listOf(
+                    "D. Mendis", "S. Fernando", "K. Perera", "C. Asalanka", "B. Rajapaksa",
+                    "D. Shanaka", "W. Hasaranga", "C. Karunaratne", "D. Chameera", "M. Theekshana", "L. Kumara"
+                )
+            )
+            saveTeamWithPlayers(
+                teamId = null,
+                name = "Sales Strikers",
+                playerNames = listOf(
+                    "P. Nissanka", "K. Mendis", "S. Samarawickrama", "C. Silva", "A. Mathews",
+                    "D. de Silva", "K. Rajitha", "M. Pathirana", "P. Jayawickrama", "N. Pradeep", "B. Fernando"
+                )
+            )
+        }
+    }
+
     // ── Match ───────────────────────────────────────────────────
     suspend fun createMatch(tournamentId: Int, team1Id: Int, team2Id: Int): Int =
         matchDao.insert(Match(tournamentId = tournamentId, team1Id = team1Id, team2Id = team2Id)).toInt()

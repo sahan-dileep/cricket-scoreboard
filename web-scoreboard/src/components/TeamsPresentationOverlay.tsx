@@ -18,6 +18,7 @@ export interface TeamsPresentationOverlayProps {
   team2Roster?: string[];
   playerRoles?: Record<string, PlayerRole>;
   durationSeconds?: number;
+  autoDismiss?: boolean;
   onDismiss: () => void;
 }
 
@@ -35,12 +36,15 @@ export function TeamsPresentationOverlay({
   team2Roster = [],
   playerRoles = {},
   durationSeconds = 10,
+  autoDismiss = false, // Disabled by default so screen does not restart after 10s
   onDismiss,
 }: TeamsPresentationOverlayProps) {
   const [timeLeft, setTimeLeft] = useState<number>(durationSeconds);
+  const progressPercent = durationSeconds > 0 ? (timeLeft / durationSeconds) * 100 : 100;
 
-  // Countdown timer
+  // Optional countdown timer (only runs if explicitly requested)
   useEffect(() => {
+    if (!autoDismiss) return;
     setTimeLeft(durationSeconds);
     const interval = setInterval(() => {
       setTimeLeft((prev) => {
@@ -54,7 +58,7 @@ export function TeamsPresentationOverlay({
     }, 1000);
 
     return () => clearInterval(interval);
-  }, [durationSeconds, onDismiss]);
+  }, [autoDismiss, durationSeconds, onDismiss]);
 
   const resolvedTitle =
     matchTitle || tournamentName || `${team1Name} VS ${team2Name}`;
@@ -133,16 +137,14 @@ export function TeamsPresentationOverlay({
     return PLAYER_ROLES[roleKey] || PLAYER_ROLES.batting;
   };
 
-  const progressPercent = Math.max(0, Math.min(100, (timeLeft / durationSeconds) * 100));
-
   return (
     <div
       role="dialog"
       aria-label="Teams Presentation Overlay"
-      className="absolute inset-0 z-50 flex flex-col justify-between bg-[#020e13]/95 backdrop-blur-md p-3 sm:p-5 md:p-6 text-slate-100 select-none animate-fadeIn overflow-hidden"
+      className="absolute inset-0 z-50 flex flex-col justify-between bg-[#020b0d]/95 backdrop-blur-md p-3 sm:p-5 md:p-6 text-slate-100 select-none animate-fadeIn overflow-hidden font-['Barlow_Condensed',sans-serif]"
       style={{
         background:
-          'radial-gradient(circle at 50% 15%, rgba(7, 45, 54, 0.85) 0%, rgba(2, 14, 19, 0.98) 80%)',
+          'radial-gradient(circle at 50% 15%, rgba(7, 45, 54, 0.9) 0%, rgba(2, 11, 13, 0.98) 85%)',
       }}
     >
       {/* LED Matrix subtle mesh overlay */}
@@ -157,56 +159,53 @@ export function TeamsPresentationOverlay({
 
       {/* Top Header Bar */}
       <div className="relative z-10 flex items-center justify-between pb-2 sm:pb-3 border-b-2 border-[#09414f]">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 sm:gap-4">
           {tournamentLogo ? (
-            <Image
-              src={tournamentLogo}
-              alt="Tournament Emblem"
-              width={36}
-              height={36}
-              unoptimized
-              className="w-8 h-8 sm:w-10 sm:h-10 object-contain"
-            />
+            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/10 p-1.5 flex items-center justify-center border border-white/20 shadow-md">
+              <Image
+                src={tournamentLogo}
+                alt="Tournament Emblem"
+                width={48}
+                height={48}
+                unoptimized
+                className="w-full h-full object-contain"
+              />
+            </div>
           ) : (
             <span className="text-2xl sm:text-3xl">👥</span>
           )}
           <div>
-            <span className="text-xs font-black uppercase tracking-widest text-[#d4fc04] drop-shadow-[0_0_8px_rgba(212,252,4,0.4)]">
+            <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#d4fc04]">
               STADIUM BROADCAST • TEAM LINEUPS & PRESENTATION
             </span>
-            <h2 className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white tracking-wide leading-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black uppercase text-white tracking-tight leading-none">
               {resolvedTitle}
             </h2>
           </div>
         </div>
 
-        {/* Countdown badge & Manual Dismiss Button */}
+        {/* Manual Dismiss Button (No auto-timer) */}
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-[#032026] border border-[#0e4856] text-xs font-mono text-[#d4fc04]">
-            <span className="w-2 h-2 rounded-full bg-[#d4fc04] animate-ping" />
-            <span>DISMISSING IN {timeLeft}S</span>
-          </div>
-
           <button
             onClick={onDismiss}
             aria-label="Dismiss Overlay"
-            className="px-3 py-1 sm:px-4 sm:py-1.5 rounded-xl bg-[#092e38] hover:bg-[#0f4352] text-slate-200 hover:text-white border border-[#165a6b] font-['Barlow_Condensed',sans-serif] font-bold text-xs sm:text-sm uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95"
+            className="px-4 py-1.5 sm:px-5 sm:py-2 rounded-xl bg-[#092e38] hover:bg-[#0f4352] text-slate-200 hover:text-white border-2 border-[#165a6b] font-black text-sm sm:text-base uppercase tracking-wider transition-all cursor-pointer flex items-center gap-2 shadow-lg active:scale-95"
           >
             <span>✕</span>
             <span>Dismiss</span>
-            <span className="text-slate-400 font-mono text-[10px] hidden md:inline">[Esc]</span>
+            <span className="text-[#d4fc04] font-mono text-xs hidden md:inline">[Esc]</span>
           </button>
         </div>
       </div>
 
       {/* Main Side-by-Side Presentation Layout */}
-      <div className="relative z-10 flex-1 grid grid-cols-2 gap-3 sm:gap-6 my-2 sm:my-3 min-h-0 overflow-hidden">
+      <div className="relative z-10 flex-1 grid grid-cols-2 gap-4 sm:gap-6 md:gap-8 my-2 sm:my-3 min-h-0 overflow-hidden">
         
         {/* Left Column: Team 1 */}
-        <div className="flex flex-col bg-[#031c24]/90 border-2 border-[#0e4856] rounded-2xl p-2.5 sm:p-4 shadow-2xl min-h-0">
+        <div className="flex flex-col bg-[#021820]/95 border-2 border-[#165a6b] rounded-2xl p-3 sm:p-4 md:p-5 shadow-2xl min-h-0">
           {/* Team 1 Header with Crest & Captain */}
-          <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-[#0d4654] mb-2">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-xl p-1.5 bg-[#021319] border border-[#165a6b] flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 pb-2.5 border-b-2 border-[#09414f] shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl p-2 bg-white/10 border-2 border-white/20 shadow-md flex items-center justify-center shrink-0">
               <Image
                 src={defaultLogo1}
                 alt={team1Name}
@@ -217,20 +216,22 @@ export function TeamsPresentationOverlay({
               />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-[#d4fc04] truncate tracking-tight">
+              <h3 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase text-[#d4fc04] truncate tracking-tight leading-none">
                 {team1Name}
               </h3>
-              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs md:text-sm font-bold uppercase text-slate-300">
-                <span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-black">
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 text-xs font-black uppercase">
                   (C)
                 </span>
-                <span className="truncate">CAPTAIN: {cleanPlayerName(resolvedCap1)}</span>
+                <span className="text-xs sm:text-sm md:text-base font-bold uppercase text-slate-300 tracking-wide truncate">
+                  CAPTAIN: {cleanPlayerName(resolvedCap1)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Team 1 11-Player Roster */}
-          <div className="flex-1 overflow-hidden grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-1.5 content-start">
+          {/* Team 1 11-Player Vertical Roster (Generously sized rows filling height) */}
+          <div className="flex-1 flex flex-col justify-between min-h-0 gap-1 sm:gap-1.5 pt-2">
             {squad1.map((player, idx) => {
               const role = getRoleInfo(player);
               const clean = cleanPlayerName(player);
@@ -239,29 +240,41 @@ export function TeamsPresentationOverlay({
               return (
                 <div
                   key={`t1-${idx}`}
-                  className="flex items-center justify-between px-2 py-0.5 sm:py-1 rounded bg-[#021217] border border-[#0a3540] text-xs sm:text-sm font-['Barlow_Condensed',sans-serif]"
+                  className="flex items-center justify-between px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg bg-[#02141a] border border-[#0d4654] hover:bg-white/5 transition-colors"
                 >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="w-5 text-[10px] sm:text-xs font-mono text-slate-400 font-bold shrink-0">
+                  {/* Left: Number, Role SVG Icon & Large Player Name */}
+                  <div className="flex items-center gap-2 sm:gap-3 truncate">
+                    <span className="w-6 text-sm sm:text-base md:text-lg font-mono text-slate-400 font-bold shrink-0">
                       {idx + 1}.
                     </span>
-                    <span className="text-sm shrink-0" title={role.label}>
-                      {role.icon}
+                    <span
+                      className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg p-1 bg-[#021b22] border border-[#0e4857] inline-flex items-center justify-center shrink-0"
+                      title={`${role.icon} ${role.label}`}
+                      data-icon={role.icon}
+                    >
+                      <img
+                        src={role.rcIconUrl}
+                        alt={role.label}
+                        className="w-full h-full object-contain"
+                      />
                     </span>
-                    <span className={`font-bold uppercase truncate ${isCaptain ? 'text-[#d4fc04]' : 'text-slate-100'}`}>
+                    <span
+                      className={`text-base sm:text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-tight truncate ${
+                        isCaptain ? 'text-[#d4fc04]' : 'text-white'
+                      }`}
+                    >
                       {clean}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                  {/* Right: Badges */}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {isCaptain && (
-                      <span className="text-[10px] font-black px-1 rounded bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                        C
+                      <span className="px-2 py-0.5 rounded bg-[#d4fc04] text-[#032026] font-black text-xs sm:text-sm tracking-wider shadow-sm">
+                        CAPTAIN
                       </span>
                     )}
-                    <span
-                      className={`text-[9px] sm:text-[10px] font-bold uppercase px-1 rounded ${role.badgeClass}`}
-                    >
+                    <span className={`px-2 py-0.5 rounded font-bold text-xs sm:text-sm md:text-base uppercase tracking-wider ${role.badgeClass || 'bg-white/5 border border-white/10 text-slate-300'}`}>
                       {role.shortLabel}
                     </span>
                   </div>
@@ -272,10 +285,10 @@ export function TeamsPresentationOverlay({
         </div>
 
         {/* Right Column: Team 2 */}
-        <div className="flex flex-col bg-[#031c24]/90 border-2 border-[#0e4856] rounded-2xl p-2.5 sm:p-4 shadow-2xl min-h-0">
+        <div className="flex flex-col bg-[#021820]/95 border-2 border-[#165a6b] rounded-2xl p-3 sm:p-4 md:p-5 shadow-2xl min-h-0">
           {/* Team 2 Header with Crest & Captain */}
-          <div className="flex items-center gap-3 sm:gap-4 pb-2 border-b border-[#0d4654] mb-2">
-            <div className="w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-xl p-1.5 bg-[#021319] border border-[#165a6b] flex items-center justify-center shrink-0">
+          <div className="flex items-center gap-3 sm:gap-4 pb-2.5 border-b-2 border-[#09414f] shrink-0">
+            <div className="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-2xl p-2 bg-white/10 border-2 border-white/20 shadow-md flex items-center justify-center shrink-0">
               <Image
                 src={defaultLogo2}
                 alt={team2Name}
@@ -286,20 +299,22 @@ export function TeamsPresentationOverlay({
               />
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-[#38bdf8] truncate tracking-tight">
+              <h3 className="text-2xl sm:text-4xl md:text-5xl font-black uppercase text-[#38bdf8] truncate tracking-tight leading-none">
                 {team2Name}
               </h3>
-              <div className="flex items-center gap-1.5 text-[11px] sm:text-xs md:text-sm font-bold uppercase text-slate-300">
-                <span className="px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/30 text-[10px] font-black">
+              <div className="flex items-center gap-2 mt-1.5">
+                <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40 text-xs font-black uppercase">
                   (C)
                 </span>
-                <span className="truncate">CAPTAIN: {cleanPlayerName(resolvedCap2)}</span>
+                <span className="text-xs sm:text-sm md:text-base font-bold uppercase text-slate-300 tracking-wide truncate">
+                  CAPTAIN: {cleanPlayerName(resolvedCap2)}
+                </span>
               </div>
             </div>
           </div>
 
-          {/* Team 2 11-Player Roster */}
-          <div className="flex-1 overflow-hidden grid grid-cols-1 sm:grid-cols-2 gap-1 sm:gap-1.5 content-start">
+          {/* Team 2 11-Player Vertical Roster (Generously sized rows filling height) */}
+          <div className="flex-1 flex flex-col justify-between min-h-0 gap-1 sm:gap-1.5 pt-2">
             {squad2.map((player, idx) => {
               const role = getRoleInfo(player);
               const clean = cleanPlayerName(player);
@@ -308,29 +323,41 @@ export function TeamsPresentationOverlay({
               return (
                 <div
                   key={`t2-${idx}`}
-                  className="flex items-center justify-between px-2 py-0.5 sm:py-1 rounded bg-[#021217] border border-[#0a3540] text-xs sm:text-sm font-['Barlow_Condensed',sans-serif]"
+                  className="flex items-center justify-between px-3 sm:px-4 py-1 sm:py-1.5 rounded-lg bg-[#02141a] border border-[#0d4654] hover:bg-white/5 transition-colors"
                 >
-                  <div className="flex items-center gap-1.5 truncate">
-                    <span className="w-5 text-[10px] sm:text-xs font-mono text-slate-400 font-bold shrink-0">
+                  {/* Left: Number, Role SVG Icon & Large Player Name */}
+                  <div className="flex items-center gap-2 sm:gap-3 truncate">
+                    <span className="w-6 text-sm sm:text-base md:text-lg font-mono text-slate-400 font-bold shrink-0">
                       {idx + 1}.
                     </span>
-                    <span className="text-sm shrink-0" title={role.label}>
-                      {role.icon}
+                    <span
+                      className="w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg p-1 bg-[#021b22] border border-[#0e4857] inline-flex items-center justify-center shrink-0"
+                      title={`${role.icon} ${role.label}`}
+                      data-icon={role.icon}
+                    >
+                      <img
+                        src={role.rcIconUrl}
+                        alt={role.label}
+                        className="w-full h-full object-contain"
+                      />
                     </span>
-                    <span className={`font-bold uppercase truncate ${isCaptain ? 'text-[#38bdf8]' : 'text-slate-100'}`}>
+                    <span
+                      className={`text-base sm:text-xl md:text-2xl lg:text-3xl font-black uppercase tracking-tight truncate ${
+                        isCaptain ? 'text-[#38bdf8]' : 'text-white'
+                      }`}
+                    >
                       {clean}
                     </span>
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0 ml-1">
+                  {/* Right: Badges */}
+                  <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     {isCaptain && (
-                      <span className="text-[10px] font-black px-1 rounded bg-sky-500/20 text-sky-400 border border-sky-500/30">
-                        C
+                      <span className="px-2 py-0.5 rounded bg-sky-500/20 text-sky-400 border border-sky-500/40 font-black text-xs sm:text-sm tracking-wider shadow-sm">
+                        CAPTAIN
                       </span>
                     )}
-                    <span
-                      className={`text-[9px] sm:text-[10px] font-bold uppercase px-1 rounded ${role.badgeClass}`}
-                    >
+                    <span className={`px-2 py-0.5 rounded font-bold text-xs sm:text-sm md:text-base uppercase tracking-wider ${role.badgeClass || 'bg-white/5 border border-white/10 text-slate-300'}`}>
                       {role.shortLabel}
                     </span>
                   </div>
@@ -342,23 +369,13 @@ export function TeamsPresentationOverlay({
 
       </div>
 
-      {/* Bottom Progress Bar & Footer */}
-      <div className="relative z-10 w-full pt-2 border-t-2 border-[#09414f] flex flex-col gap-1.5">
-        <div className="flex items-center justify-between text-xs font-mono text-slate-400">
-          <span className="flex items-center gap-1.5">
-            <span className="w-2 h-2 rounded-full bg-sky-400" />
-            STADIUM LED OVERLAY ACTIVE • 11-PLAYER SQUADS
-          </span>
-          <span>AUTORETURN IN {timeLeft}S • PRESS [ESC] TO DISMISS</span>
-        </div>
-
-        {/* Animated Progress Bar */}
-        <div className="w-full h-2 rounded-full bg-[#032026] overflow-hidden border border-[#0d4654]">
-          <div
-            className="h-full bg-gradient-to-r from-sky-400 to-[#d4fc04] transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(212,252,4,0.8)]"
-            style={{ width: `${progressPercent}%` }}
-          />
-        </div>
+      {/* Clean Bottom Footer Bar (No auto-timer) */}
+      <div className="relative z-10 w-full pt-2 border-t-2 border-[#09414f] flex items-center justify-between text-xs sm:text-sm font-mono text-slate-400">
+        <span className="flex items-center gap-2">
+          <span className="w-2.5 h-2.5 rounded-full bg-[#d4fc04]" />
+          <span className="font-bold text-slate-200">STADIUM LED OVERLAY</span> • 11-PLAYER SQUADS
+        </span>
+        <span className="font-bold text-[#d4fc04]">PRESS [ESC] OR [X] TO RETURN TO SCOREBOARD</span>
       </div>
     </div>
   );

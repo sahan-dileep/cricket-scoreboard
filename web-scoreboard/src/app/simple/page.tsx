@@ -520,7 +520,6 @@ export default function StadiumLedScoreboard() {
             tossWinner={match.toss?.winner || match.tossWinner || currentInnings?.battingTeam || match.team1}
             tossDecision={match.toss?.decision || match.tossDecision}
             tossChoice={match.toss?.choice || match.tossChoice}
-            durationSeconds={10}
             onDismiss={handleDismissOverlay}
           />
         )}
@@ -539,7 +538,6 @@ export default function StadiumLedScoreboard() {
             team1Roster={team1Data?.players || (match.team1.toLowerCase() === 'australia' ? DEFAULT_LINEUP_AUS : [])}
             team2Roster={team2Data?.players || []}
             playerRoles={branding.playerRoles}
-            durationSeconds={10}
             onDismiss={handleDismissOverlay}
           />
         )}
@@ -551,7 +549,6 @@ export default function StadiumLedScoreboard() {
             teamLogo={bowlerTeamLogo}
             playerPhoto={currentBowler ? branding.playerPhotos[currentBowler.name] : undefined}
             playerRole={currentBowler ? getPlayerRole(currentBowler.name) : 'baller'}
-            durationSeconds={10}
             onDismiss={handleDismissOverlay}
           />
         )}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { ScoreData, Batsman, Bowler, BrandingConfig, DEFAULT_BRANDING, TeamData } from '@/types/cricket';
+import { ScoreData, Batsman, Bowler, BrandingConfig, DEFAULT_BRANDING, TeamData, PlayerRole, PLAYER_ROLES } from '@/types/cricket';
 import { ConnectionModal } from '@/components/ConnectionModal';
 
 // Authentic default data matching the Australian Stadium LED Scoreboard photo
@@ -219,6 +219,36 @@ export default function StadiumLedScoreboard() {
   const match = scoreData.match;
   const currentInnings = scoreData.currentInnings;
 
+  // Player skill role lookup
+  const getPlayerRole = (name: string): PlayerRole => {
+    if (!name) return 'batting';
+    const trimmed = name.trim();
+    if (branding?.playerRoles && branding.playerRoles[trimmed]) {
+      return branding.playerRoles[trimmed];
+    }
+    if (branding?.playerRoles) {
+      const foundKey = Object.keys(branding.playerRoles).find(
+        (k) => k.toLowerCase().trim() === trimmed.toLowerCase()
+      );
+      if (foundKey) return branding.playerRoles[foundKey];
+    }
+    const DEFAULT_ROLES_MAP: Record<string, PlayerRole> = {
+      head: 'batting',
+      marsh: 'all_rounder',
+      green: 'all_rounder',
+      carey: 'wicket_keeper',
+      labuschagne: 'batting',
+      inglis: 'wicket_keeper',
+      connolly: 'all_rounder',
+      bartlett: 'baller',
+      abbott: 'baller',
+      ellis: 'baller',
+      zampa: 'baller',
+      mulder: 'all_rounder',
+    };
+    return DEFAULT_ROLES_MAP[trimmed.toLowerCase()] || 'batting';
+  };
+
   // Batting team name
   const battingTeamName = currentInnings?.battingTeam || match?.team1 || 'AUSTRALIA';
   const totalOvers = match?.totalOvers || 50;
@@ -397,10 +427,10 @@ export default function StadiumLedScoreboard() {
               </div>
             </div>
 
-            {/* Giant Top Score Figure Highlighted with large text size */}
+            {/* Giant Top Score Figure Highlighted with large text size (No glow) */}
             <div className="flex items-center gap-4 sm:gap-8">
-              <div className="px-4 sm:px-6 py-1 rounded-2xl bg-[#021820]/90 border-2 border-[#165a6b] shadow-[0_0_35px_rgba(255,255,255,0.25)] flex items-center">
-                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white drop-shadow-[0_0_25px_rgba(255,255,255,0.7)] leading-none">
+              <div className="px-4 sm:px-6 py-1 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center">
+                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white leading-none">
                   {scoreFormatted}
                 </span>
               </div>
@@ -420,28 +450,42 @@ export default function StadiumLedScoreboard() {
             {/* ── LEFT COLUMN: 11-MAN BATTING CARD & CREASE STRIP (9 cols) ── */}
             <div className="col-span-9 flex flex-col justify-between min-h-0">
               
-              {/* Batting Card Roster (11 Rows) */}
+              {/* Batting Card Roster (11 Rows) with Player Skill Icons */}
               <div className="flex flex-col gap-1 sm:gap-1.5 flex-1 justify-around min-h-0 pr-2">
                 {fullBattingLineup.map((player, idx) => {
                   const isHighlighted = player.isCurrentlyBatting;
+                  const roleKey = getPlayerRole(player.name);
+                  const roleInfo = PLAYER_ROLES[roleKey];
 
                   return (
                     <div
                       key={idx}
                       className={`relative flex items-center justify-between px-3 sm:px-4 py-0.5 sm:py-1 rounded transition-all ${
                         isHighlighted
-                          ? 'bg-[#d4fc04] text-[#032026] shadow-[0_0_20px_rgba(212,252,4,0.45)] ring-1 ring-[#e6ff40]'
+                          ? 'bg-[#d4fc04] text-[#032026] ring-1 ring-[#e6ff40]'
                           : 'text-white/90 hover:bg-white/5'
                       }`}
                     >
-                      {/* Left: Player Name */}
-                      <span
-                        className={`w-36 sm:w-48 md:w-56 text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] uppercase tracking-tight truncate ${
-                          isHighlighted ? 'font-black text-[#032026]' : 'font-bold text-white'
-                        }`}
-                      >
-                        {player.name}
-                      </span>
+                      {/* Left: Player Skill Icon & Name */}
+                      <div className="flex items-center gap-2 sm:gap-2.5 w-48 sm:w-60 md:w-72 truncate">
+                        <span
+                          className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg text-sm sm:text-base md:text-lg shrink-0 ${
+                            isHighlighted
+                              ? 'bg-[#032026] text-[#d4fc04]'
+                              : 'bg-[#021b22] border border-[#0e4857]'
+                          }`}
+                          title={`Skill: ${roleInfo.label}`}
+                        >
+                          {roleInfo.icon}
+                        </span>
+                        <span
+                          className={`text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] uppercase tracking-tight truncate ${
+                            isHighlighted ? 'font-black text-[#032026]' : 'font-bold text-white'
+                          }`}
+                        >
+                          {player.name}
+                        </span>
+                      </div>
 
                       {/* Center: Dismissal Description */}
                       <span
@@ -480,7 +524,7 @@ export default function StadiumLedScoreboard() {
 
               {/* Extras Pill (Bottom Right of batting list) */}
               <div className="flex justify-end pt-2">
-                <div className="px-4 py-1 rounded bg-[#d4fc04] text-[#032026] font-['Barlow_Condensed',sans-serif] font-black uppercase text-base sm:text-xl md:text-2xl tracking-wider shadow-[0_0_15px_rgba(212,252,4,0.3)]">
+                <div className="px-4 py-1 rounded bg-[#d4fc04] text-[#032026] font-['Barlow_Condensed',sans-serif] font-black uppercase text-base sm:text-xl md:text-2xl tracking-wider">
                   EXTRAS {currentInnings?.extras ?? 21}
                 </div>
               </div>
@@ -488,14 +532,14 @@ export default function StadiumLedScoreboard() {
               {/* ── BOTTOM STRIP: MATCH CREASE & BOWLER ── */}
               <div className="pt-2 sm:pt-3 border-t-2 border-[#09414f] grid grid-cols-12 gap-3 sm:gap-4 items-center">
                 
-                {/* Wickets & Overs Emblem Box (3 cols) */}
-                <div className="col-span-3 flex items-center gap-3 bg-[#021820] p-2.5 sm:p-3.5 rounded-xl border-2 border-[#145d70] shadow-[0_0_20px_rgba(212,252,4,0.25)]">
+                {/* Wickets & Overs Emblem Box (3 cols - No score glow) */}
+                <div className="col-span-3 flex items-center gap-3 bg-[#021820] p-2.5 sm:p-3.5 rounded-xl border-2 border-[#145d70]">
                   {/* Australian Southern Cross / Cricket Stars */}
                   <div className="text-2xl sm:text-3xl text-[#d4fc04] leading-none animate-pulse">
                     ✨
                   </div>
                   <div>
-                    <div className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] leading-none drop-shadow-[0_0_15px_rgba(212,252,4,0.45)]">
+                    <div className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] leading-none">
                       {scoreFormatted}
                     </div>
                     <div className="text-sm sm:text-lg md:text-xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-white leading-tight mt-1 flex items-center gap-1.5">
@@ -506,12 +550,15 @@ export default function StadiumLedScoreboard() {
                   </div>
                 </div>
 
-                {/* Active Batsmen Box (5 cols) */}
+                {/* Active Batsmen Box (5 cols) with Skill Icons */}
                 <div className="col-span-5 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857] flex flex-col justify-center gap-1">
                   {/* Batsman 1 (Striker) */}
                   <div className="flex items-center justify-between text-base sm:text-xl md:text-2xl font-['Barlow_Condensed',sans-serif] font-black">
-                    <span className="text-white flex items-center gap-1 truncate">
+                    <span className="text-white flex items-center gap-1.5 truncate">
                       <span className="text-[#d4fc04] font-bold">/</span>
+                      <span className="text-sm sm:text-base" title={PLAYER_ROLES[getPlayerRole(striker?.name || '')].label}>
+                        {PLAYER_ROLES[getPlayerRole(striker?.name || '')].icon}
+                      </span>
                       <span className="uppercase">{striker?.name || 'GREEN'}</span>
                     </span>
                     <span className="text-[#d4fc04] tabular-nums font-black ml-2">
@@ -524,8 +571,11 @@ export default function StadiumLedScoreboard() {
 
                   {/* Batsman 2 (Non-Striker) */}
                   <div className="flex items-center justify-between text-base sm:text-xl md:text-2xl font-['Barlow_Condensed',sans-serif] font-bold">
-                    <span className="text-slate-300 uppercase truncate">
-                      {nonStriker?.name || 'CAREY'}
+                    <span className="text-slate-300 flex items-center gap-1.5 truncate">
+                      <span className="text-sm sm:text-base" title={PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].label}>
+                        {PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].icon}
+                      </span>
+                      <span className="uppercase">{nonStriker?.name || 'CAREY'}</span>
                     </span>
                     <span className="text-white tabular-nums font-black ml-2">
                       {nonStriker?.runs ?? 50}{' '}
@@ -536,14 +586,17 @@ export default function StadiumLedScoreboard() {
                   </div>
                 </div>
 
-                {/* Current Bowler Box (4 cols) */}
+                {/* Current Bowler Box (4 cols) with Skill Icon */}
                 <div className="col-span-4 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857] flex flex-col justify-center">
                   <div className="text-xs sm:text-sm font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400">
                     BOWLER
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white truncate">
-                      {currentBowler?.name || 'MULDER'}
+                    <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white truncate flex items-center gap-1.5">
+                      <span className="text-sm sm:text-base" title={PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].label}>
+                        {PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].icon}
+                      </span>
+                      <span>{currentBowler?.name || 'MULDER'}</span>
                     </span>
                     <span className="text-xl sm:text-3xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] tabular-nums ml-2">
                       {currentBowler?.wickets ?? 0}-{currentBowler?.runs ?? 93}{' '}

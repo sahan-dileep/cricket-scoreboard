@@ -92,9 +92,7 @@ export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, score
         </div>
         <div
           className={`font-black tracking-tight mt-1 transition-all duration-300 ${
-            isTeam1Batting
-              ? 'text-5xl md:text-7xl lg:text-8xl text-amber-400 drop-shadow-[0_0_24px_rgba(251,191,36,0.35)]'
-              : 'text-3xl md:text-5xl text-slate-300'
+            isTeam1Batting ? 'text-5xl md:text-7xl lg:text-8xl text-amber-400' : 'text-3xl md:text-5xl text-slate-300'
           } ${isTeam1Batting && scoreFlash ? 'scale-105 text-emerald-400' : ''}`}
         >
           {team1Score}
@@ -168,9 +166,7 @@ export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, score
         </div>
         <div
           className={`font-black tracking-tight mt-1 transition-all duration-300 ${
-            isTeam2Batting
-              ? 'text-5xl md:text-7xl lg:text-8xl text-amber-400 drop-shadow-[0_0_24px_rgba(251,191,36,0.35)]'
-              : 'text-3xl md:text-5xl text-slate-300'
+            isTeam2Batting ? 'text-5xl md:text-7xl lg:text-8xl text-amber-400' : 'text-3xl md:text-5xl text-slate-300'
           } ${isTeam2Batting && scoreFlash ? 'scale-105 text-emerald-400' : ''}`}
         >
           {team2Score}

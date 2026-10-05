@@ -4,9 +4,10 @@ import { Batsman } from '@/types/cricket';
 
 interface Props {
   batsmen?: Batsman[];
+  playerPhotos?: Record<string, string>;
 }
 
-export const BatsmenPanel: React.FC<Props> = ({ batsmen = [] }) => {
+export const BatsmenPanel: React.FC<Props> = ({ batsmen = [], playerPhotos = {} }) => {
   return (
     <div className="bg-slate-900/85 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
       <div className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
@@ -24,19 +25,32 @@ export const BatsmenPanel: React.FC<Props> = ({ batsmen = [] }) => {
                 ? ((bat.runs / bat.balls) * 100).toFixed(1)
                 : bat.strikeRate?.toFixed(1) ?? '—';
 
+            const photoSrc =
+              (bat.name && playerPhotos[bat.name]) ||
+              '/assets/branding/player-avatar-default.svg';
+
             return (
               <div
                 key={idx}
-                className="grid grid-cols-[auto_1fr_repeat(5,auto)] items-center gap-3 py-3"
+                className="grid grid-cols-[auto_auto_1fr_repeat(5,auto)] items-center gap-3 py-3"
               >
                 {/* On-strike Indicator */}
                 <span
-                  className={`text-lg font-bold min-w-[20px] transition-opacity ${
+                  className={`text-lg font-bold min-w-[16px] transition-opacity ${
                     bat.onStrike ? 'text-amber-400 opacity-100' : 'opacity-0'
                   }`}
                 >
                   ★
                 </span>
+
+                {/* Player Photo Avatar */}
+                <div className="w-10 h-10 md:w-11 md:h-11 rounded-full overflow-hidden border border-slate-700 bg-slate-800 flex-shrink-0 shadow-md">
+                  <img
+                    src={photoSrc}
+                    alt={bat.name || 'Batsman'}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
 
                 {/* Name */}
                 <div className="font-bold text-lg text-slate-100 truncate pr-2">

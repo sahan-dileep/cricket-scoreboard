@@ -125,3 +125,24 @@ export interface TeamData {
   players: string[];
 }
 
+export interface BrandingConfig {
+  companyName: string;
+  companyLogo: string;
+  tournamentName: string;
+  tournamentLogo: string;
+  teamLogos: Record<string, string>;
+  playerPhotos: Record<string, string>;
+}
+
+export const DEFAULT_BRANDING: BrandingConfig = {
+  companyName: 'Company Cricket League',
+  companyLogo: '/assets/branding/company-logo-default.svg',
+  tournamentName: 'Annual Cricket Tournament',
+  tournamentLogo: '/assets/branding/tournament-logo-default.svg',
+  teamLogos: {
+    'Tech Titans': '/assets/branding/tech-titans-logo.svg',
+    'Sales Strikers': '/assets/branding/sales-strikers-logo.svg',
+  },
+  playerPhotos: {},
+};
+

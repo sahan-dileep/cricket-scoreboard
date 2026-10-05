@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { MediaItem, AdminActionType, ScoreData, TeamData } from '@/types/cricket';
+import { MediaItem, AdminActionType, ScoreData, TeamData, BrandingConfig, DEFAULT_BRANDING } from '@/types/cricket';
 
 export default function AdminPage() {
   const [androidIp, setAndroidIp] = useState<string>('');
@@ -38,6 +38,11 @@ export default function AdminPage() {
   const [teamFormPlayers, setTeamFormPlayers] = useState<string>('');
   const [teamToDelete, setTeamToDelete] = useState<TeamData | null>(null);
   const jsonInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Branding & Visual Assets State
+  const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
+  const [selectedPlayerTeam, setSelectedPlayerTeam] = useState<string>('');
+  const brandingJsonRef = useRef<HTMLInputElement | null>(null);
 
   // Media Libraries
   const [videoAds, setVideoAds] = useState<MediaItem[]>([]);
@@ -233,17 +238,30 @@ export default function AdminPage() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      const saved = localStorage.getItem('cricket_android_ip');
-      if (saved) {
-        setAndroidIp(saved);
-        setIpInput(saved);
-        fetchTeams(saved);
+      const savedIp = localStorage.getItem('cricket_android_ip');
+      if (savedIp) {
+        setAndroidIp(savedIp);
+        setIpInput(savedIp);
+        fetchTeams(savedIp);
       } else {
         const cached = localStorage.getItem('cricket_teams_cache');
         if (cached) {
-          try { setTeams(JSON.parse(cached)); } catch {}
+          try {
+            setTeams(JSON.parse(cached));
+          } catch {}
         }
       }
+
+      // Load Branding Config
+      try {
+        const savedBranding = localStorage.getItem('cricket_branding_config');
+        if (savedBranding) {
+          setBranding(JSON.parse(savedBranding));
+        }
+      } catch (err) {
+        console.error('Failed to parse branding config:', err);
+      }
+
       addLog('Admin console initialized. Ready to connect.', 'info');
     }, 0);
     return () => clearTimeout(timer);
@@ -404,6 +422,193 @@ export default function AdminPage() {
     setActiveMediaName(null);
     sendCommand('STOP_AD');
     addLog('Active ad stopped', 'cmd');
+  };
+
+  // --- Branding & Visual Assets Helpers ---
+  const updateAndSaveBranding = (newBranding: BrandingConfig) => {
+    setBranding(newBranding);
+    try {
+      localStorage.setItem('cricket_branding_config', JSON.stringify(newBranding));
+      window.dispatchEvent(new Event('storage'));
+      addLog('Tournament branding updated successfully', 'success');
+    } catch (err) {
+      console.error('Failed to save branding config:', err);
+      addLog('Failed to save branding (image file might be too large for storage)', 'error');
+    }
+  };
+
+  const processImageFile = (
+    file: File,
+    maxWidth: number,
+    maxHeight: number,
+    onSuccess: (dataUrl: string) => void
+  ) => {
+    if (file.type === 'image/svg+xml') {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) onSuccess(e.target.result as string);
+      };
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/webp', 0.88);
+          onSuccess(compressed);
+        } else {
+          onSuccess(e.target?.result as string);
+        }
+      };
+      img.onerror = () => {
+        onSuccess(e.target?.result as string);
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleCompanyLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file, 600, 600, (dataUrl) => {
+      updateAndSaveBranding({ ...branding, companyLogo: dataUrl });
+      addLog(`Updated Company Logo (${file.name})`, 'success');
+    });
+    e.target.value = '';
+  };
+
+  const resetCompanyLogo = () => {
+    updateAndSaveBranding({ ...branding, companyLogo: DEFAULT_BRANDING.companyLogo });
+    addLog('Reset Company Logo to default', 'info');
+  };
+
+  const handleMatchLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file, 600, 600, (dataUrl) => {
+      updateAndSaveBranding({ ...branding, tournamentLogo: dataUrl });
+      addLog(`Updated Tournament / Match Logo (${file.name})`, 'success');
+    });
+    e.target.value = '';
+  };
+
+  const resetMatchLogo = () => {
+    updateAndSaveBranding({ ...branding, tournamentLogo: DEFAULT_BRANDING.tournamentLogo });
+    addLog('Reset Tournament Logo to default', 'info');
+  };
+
+  const handleTeamLogoUpload = (teamName: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file, 400, 400, (dataUrl) => {
+      const updatedLogos = { ...branding.teamLogos, [teamName]: dataUrl };
+      updateAndSaveBranding({ ...branding, teamLogos: updatedLogos });
+      addLog(`Updated logo for team "${teamName}"`, 'success');
+    });
+    e.target.value = '';
+  };
+
+  const resetTeamLogo = (teamName: string) => {
+    const updatedLogos = { ...branding.teamLogos };
+    delete updatedLogos[teamName];
+    updateAndSaveBranding({ ...branding, teamLogos: updatedLogos });
+    addLog(`Reset logo for team "${teamName}" to default`, 'info');
+  };
+
+  const handlePlayerPhotoUpload = (playerName: string, e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    processImageFile(file, 300, 300, (dataUrl) => {
+      const updatedPhotos = { ...branding.playerPhotos, [playerName]: dataUrl };
+      updateAndSaveBranding({ ...branding, playerPhotos: updatedPhotos });
+      addLog(`Uploaded photo for player "${playerName}"`, 'success');
+    });
+    e.target.value = '';
+  };
+
+  const resetPlayerPhoto = (playerName: string) => {
+    const updatedPhotos = { ...branding.playerPhotos };
+    delete updatedPhotos[playerName];
+    updateAndSaveBranding({ ...branding, playerPhotos: updatedPhotos });
+    addLog(`Removed custom photo for player "${playerName}"`, 'info');
+  };
+
+  const resetAllBranding = () => {
+    if (window.confirm('Are you sure you want to reset all branding, logos, and player photos to default?')) {
+      updateAndSaveBranding(DEFAULT_BRANDING);
+      addLog('All branding assets reset to default', 'info');
+    }
+  };
+
+  const exportBrandingJson = () => {
+    try {
+      const blob = new Blob([JSON.stringify(branding, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cricket_tournament_branding_${Date.now()}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      addLog('Exported tournament branding to JSON file', 'success');
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      addLog(`Failed to export branding: ${errMsg}`, 'error');
+    }
+  };
+
+  const importBrandingJson = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed: Partial<BrandingConfig> = JSON.parse(text);
+        if (parsed && typeof parsed === 'object') {
+          const merged: BrandingConfig = {
+            companyName: parsed.companyName || DEFAULT_BRANDING.companyName,
+            companyLogo: parsed.companyLogo || DEFAULT_BRANDING.companyLogo,
+            tournamentName: parsed.tournamentName || DEFAULT_BRANDING.tournamentName,
+            tournamentLogo: parsed.tournamentLogo || DEFAULT_BRANDING.tournamentLogo,
+            teamLogos: parsed.teamLogos || {},
+            playerPhotos: parsed.playerPhotos || {},
+          };
+          updateAndSaveBranding(merged);
+          addLog(`Imported branding configuration from "${file.name}"`, 'success');
+        } else {
+          throw new Error('Invalid branding file format');
+        }
+      } catch (err: unknown) {
+        const errMsg = err instanceof Error ? err.message : String(err);
+        addLog(`Failed to import branding: ${errMsg}`, 'error');
+      }
+    };
+    reader.readAsText(file);
+    e.target.value = '';
   };
 
   return (
@@ -618,6 +823,333 @@ export default function AdminPage() {
             ))}
           </div>
         )}
+      </div>
+
+      {/* Tournament Branding & Visual Assets Section */}
+      <div className="my-6 p-5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+        <div className="flex flex-col md:flex-row md:items-center justify-between pb-4 border-b border-slate-800 gap-3 mb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xl">🎨</span>
+              <h2 className="text-lg font-black uppercase tracking-wider text-amber-400">
+                Tournament Branding & Visual Assets
+              </h2>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Customize Company Logo, Tournament Emblem, Team Crests, and Player Photos for TV Scoreboard
+            </p>
+          </div>
+
+          <div className="flex items-center flex-wrap gap-2">
+            <button
+              onClick={exportBrandingJson}
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors border border-slate-700 cursor-pointer"
+              title="Download branding backup as JSON"
+            >
+              📥 Export Branding
+            </button>
+
+            <label
+              className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition-colors border border-slate-700 cursor-pointer"
+              title="Restore branding from JSON"
+            >
+              📤 Import Branding
+              <input
+                ref={brandingJsonRef}
+                type="file"
+                accept="application/json"
+                onChange={importBrandingJson}
+                className="hidden"
+              />
+            </label>
+
+            <button
+              onClick={resetAllBranding}
+              className="px-3 py-1.5 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 text-rose-300 border border-rose-800/40 text-xs font-semibold transition-colors cursor-pointer"
+              title="Reset all branding to default graphics"
+            >
+              🔄 Reset All
+            </button>
+          </div>
+        </div>
+
+        {/* 1. Company & Tournament Logos */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
+          {/* Company Identity */}
+          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/70 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-700/50 mb-3">
+                <span className="font-bold text-sm text-slate-200">🏢 Company Branding</span>
+                <span className="text-[11px] text-slate-400">Displayed in Scoreboard Header</span>
+              </div>
+
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center p-1 overflow-hidden shadow-inner flex-shrink-0">
+                  <img
+                    src={branding.companyLogo || DEFAULT_BRANDING.companyLogo}
+                    alt="Company Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-slate-400 font-semibold block mb-1">
+                    Company Name
+                  </label>
+                  <input
+                    type="text"
+                    value={branding.companyName}
+                    onChange={(e) =>
+                      updateAndSaveBranding({ ...branding, companyName: e.target.value })
+                    }
+                    placeholder="e.g. Acme Corporation"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+              <label className="px-3 py-1.5 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-semibold cursor-pointer transition-colors shadow">
+                📁 Upload Company Logo
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleCompanyLogoUpload}
+                  className="hidden"
+                />
+              </label>
+              {branding.companyLogo !== DEFAULT_BRANDING.companyLogo && (
+                <button
+                  onClick={resetCompanyLogo}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* Tournament Identity */}
+          <div className="p-4 rounded-xl bg-slate-800/60 border border-slate-700/70 flex flex-col justify-between">
+            <div>
+              <div className="flex items-center justify-between pb-2 border-b border-slate-700/50 mb-3">
+                <span className="font-bold text-sm text-slate-200">🏆 Match / Tournament Identity</span>
+                <span className="text-[11px] text-slate-400">Displayed in Center Header</span>
+              </div>
+
+              <div className="flex items-center gap-4 mb-4">
+                <div className="w-16 h-16 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center p-1 overflow-hidden shadow-inner flex-shrink-0">
+                  <img
+                    src={branding.tournamentLogo || DEFAULT_BRANDING.tournamentLogo}
+                    alt="Tournament Logo"
+                    className="w-full h-full object-contain"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="text-xs text-slate-400 font-semibold block mb-1">
+                    Tournament / Match Name
+                  </label>
+                  <input
+                    type="text"
+                    value={branding.tournamentName}
+                    onChange={(e) =>
+                      updateAndSaveBranding({ ...branding, tournamentName: e.target.value })
+                    }
+                    placeholder="e.g. Annual Champions Trophy 2026"
+                    className="w-full px-3 py-1.5 bg-slate-900 border border-slate-700 rounded-lg text-xs text-slate-200 focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2 border-t border-slate-700/50">
+              <label className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs cursor-pointer transition-colors shadow">
+                📁 Upload Match Logo
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleMatchLogoUpload}
+                  className="hidden"
+                />
+              </label>
+              {branding.tournamentLogo !== DEFAULT_BRANDING.tournamentLogo && (
+                <button
+                  onClick={resetMatchLogo}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-semibold transition-colors cursor-pointer"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* 2. Team Logos / Crests */}
+        <div className="mb-6">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-4">
+            <span className="font-bold text-sm text-slate-200">🛡️ Team Logos & Crests</span>
+            <span className="text-xs text-slate-400">Custom crests for each participating team</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            {teams.map((t, idx) => {
+              const currentTeamLogo =
+                branding.teamLogos[t.name] ||
+                DEFAULT_BRANDING.teamLogos[t.name] ||
+                (idx % 2 === 0
+                  ? '/assets/branding/tech-titans-logo.svg'
+                  : '/assets/branding/sales-strikers-logo.svg');
+
+              const isCustom = Boolean(branding.teamLogos[t.name]);
+
+              return (
+                <div
+                  key={t.id || idx}
+                  className="p-3.5 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-center justify-between gap-3"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-700 flex items-center justify-center p-1 overflow-hidden shadow flex-shrink-0">
+                      <img
+                        src={currentTeamLogo}
+                        alt={t.name}
+                        className="w-full h-full object-contain"
+                      />
+                    </div>
+                    <div className="truncate">
+                      <div className="font-bold text-xs text-slate-100 truncate">{t.name}</div>
+                      <div className="text-[10px] text-slate-400">
+                        {isCustom ? 'Custom crest' : 'Default crest'}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <label
+                      className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
+                      title="Upload team crest"
+                    >
+                      Upload
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleTeamLogoUpload(t.name, e)}
+                        className="hidden"
+                      />
+                    </label>
+                    {isCustom && (
+                      <button
+                        onClick={() => resetTeamLogo(t.name)}
+                        className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                        title="Reset to default"
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 3. Player Photos & Headshots */}
+        <div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-800 mb-4 gap-2">
+            <div>
+              <span className="font-bold text-sm text-slate-200">👤 Player Photos & Headshots</span>
+              <p className="text-xs text-slate-400">Headshots appear on scoreboard when batsman is at crease or bowler is bowling</p>
+            </div>
+
+            {/* Team Picker dropdown */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-slate-400 font-semibold">Select Team:</span>
+              <select
+                value={selectedPlayerTeam || (teams[0]?.name ?? '')}
+                onChange={(e) => setSelectedPlayerTeam(e.target.value)}
+                className="px-3 py-1.5 bg-slate-800 border border-slate-700 rounded-lg text-xs text-slate-200 font-semibold focus:outline-none focus:border-amber-400 cursor-pointer"
+              >
+                {teams.map((t, idx) => (
+                  <option key={t.id || idx} value={t.name}>
+                    {t.name} ({t.players?.length || 0})
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          {/* Player Grid for Selected Team */}
+          {(() => {
+            const currentTeamName = selectedPlayerTeam || teams[0]?.name;
+            const currentTeamObj = teams.find((t) => t.name === currentTeamName) || teams[0];
+            const playersList = currentTeamObj?.players || [];
+
+            if (playersList.length === 0) {
+              return (
+                <div className="text-center py-6 text-slate-500 text-xs italic">
+                  No players in this team yet. Add players under the Teams section above.
+                </div>
+              );
+            }
+
+            return (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                {playersList.map((playerName, pIdx) => {
+                  const photoSrc =
+                    branding.playerPhotos[playerName] ||
+                    '/assets/branding/player-avatar-default.svg';
+                  const hasCustom = Boolean(branding.playerPhotos[playerName]);
+
+                  return (
+                    <div
+                      key={pIdx}
+                      className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-center justify-between gap-3"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-700 overflow-hidden shadow flex-shrink-0">
+                          <img
+                            src={photoSrc}
+                            alt={playerName}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                        <div className="truncate">
+                          <div className="font-bold text-xs text-slate-100 truncate">{playerName}</div>
+                          <div className="text-[10px] text-slate-400">
+                            {hasCustom ? 'Photo uploaded' : 'Default avatar'}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 flex-shrink-0">
+                        <label
+                          className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
+                          title={`Upload photo for ${playerName}`}
+                        >
+                          Photo
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={(e) => handlePlayerPhotoUpload(playerName, e)}
+                            className="hidden"
+                          />
+                        </label>
+                        {hasCustom && (
+                          <button
+                            onClick={() => resetPlayerPhoto(playerName)}
+                            className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                            title="Remove custom photo"
+                          >
+                            ✕
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            );
+          })()}
+        </div>
       </div>
 
       {/* Grid of Control Cards */}

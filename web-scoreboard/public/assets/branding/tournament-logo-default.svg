@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="goldTrophy" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FEF08A" />
+      <stop offset="50%" stop-color="#EAB308" />
+      <stop offset="100%" stop-color="#A16207" />
+    </linearGradient>
+    <linearGradient id="redBall" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EF4444" />
+      <stop offset="100%" stop-color="#991B1B" />
+    </linearGradient>
+    <linearGradient id="woodBat" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#D97706" />
+      <stop offset="100%" stop-color="#78350F" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="#0B132B" />
+  <!-- Laurel Wreath -->
+  <path d="M 45 130 C 35 90, 60 50, 95 40" fill="none" stroke="#EAB308" stroke-width="3" stroke-dasharray="4,6" opacity="0.6" />
+  <path d="M 155 130 C 165 90, 140 50, 105 40" fill="none" stroke="#EAB308" stroke-width="3" stroke-dasharray="4,6" opacity="0.6" />
+  <!-- Crossed Cricket Bats -->
+  <line x1="45" y1="45" x2="155" y2="155" stroke="url(#woodBat)" stroke-width="8" stroke-linecap="round" />
+  <line x1="155" y1="45" x2="45" y2="155" stroke="url(#woodBat)" stroke-width="8" stroke-linecap="round" />
+  <!-- Golden Trophy Cup -->
+  <path d="M 70 65 L 130 65 L 125 105 C 125 120, 115 130, 100 130 C 85 130, 75 120, 75 105 Z" fill="url(#goldTrophy)" />
+  <!-- Trophy Handles -->
+  <path d="M 70 75 C 55 75, 55 100, 75 102" fill="none" stroke="url(#goldTrophy)" stroke-width="4" stroke-linecap="round" />
+  <path d="M 130 75 C 145 75, 145 100, 125 102" fill="none" stroke="url(#goldTrophy)" stroke-width="4" stroke-linecap="round" />
+  <!-- Trophy Stem and Base -->
+  <rect x="94" y="130" width="12" height="18" fill="url(#goldTrophy)" />
+  <rect x="75" y="148" width="50" height="14" rx="4" fill="url(#goldTrophy)" />
+  <!-- Red Cricket Ball in Center -->
+  <circle cx="100" cy="85" r="14" fill="url(#redBall)" />
+  <path d="M 94 73 C 104 80, 104 90, 94 97" fill="none" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="2,2" />
+  <!-- Star on Base -->
+  <polygon points="100,150 102,155 107,155 103,158 105,163 100,160 95,163 97,158 93,155 98,155" fill="#FFFFFF" />
+</svg>

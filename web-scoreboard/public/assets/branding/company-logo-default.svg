@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="compGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284C7" />
+      <stop offset="100%" stop-color="#0369A1" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FDE047" />
+      <stop offset="100%" stop-color="#CA8A04" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="#0F172A" />
+  <circle cx="100" cy="100" r="82" fill="none" stroke="#1E293B" stroke-width="4" />
+  <!-- Modern Hexagon / Shield -->
+  <polygon points="100,32 158,65 158,135 100,168 42,135 42,65" fill="url(#compGrad)" opacity="0.9" />
+  <polygon points="100,42 148,70 148,130 100,158 52,130 52,70" fill="#0F172A" />
+  <!-- Geometric Globe / Tech Grid Lines -->
+  <circle cx="100" cy="100" r="38" fill="none" stroke="url(#goldGrad)" stroke-width="3" />
+  <ellipse cx="100" cy="100" rx="18" ry="38" fill="none" stroke="url(#goldGrad)" stroke-width="2" opacity="0.8" />
+  <line x1="62" y1="100" x2="138" y2="100" stroke="url(#goldGrad)" stroke-width="2" opacity="0.8" />
+  <!-- Sparkles -->
+  <polygon points="100,75 104,85 114,85 106,91 109,101 100,95 91,101 94,91 86,85 96,85" fill="#FACC15" />
+</svg>

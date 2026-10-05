@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <linearGradient id="titanBlue" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#38BDF8" />
+      <stop offset="100%" stop-color="#1D4ED8" />
+    </linearGradient>
+    <linearGradient id="titanCyan" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#67E8F9" />
+      <stop offset="100%" stop-color="#06B6D4" />
+    </linearGradient>
+  </defs>
+  <rect width="200" height="200" rx="36" fill="#030712" />
+  <!-- Shield Badge -->
+  <path d="M 100 25 L 160 50 L 160 115 C 160 150, 100 175, 100 175 C 100 175, 40 150, 40 115 L 40 50 Z" fill="url(#titanBlue)" />
+  <path d="M 100 35 L 150 56 L 150 112 C 150 140, 100 162, 100 162 C 100 162, 50 140, 50 112 L 50 56 Z" fill="#0F172A" />
+  <!-- Giant Lightning Bolt -->
+  <polygon points="106,48 74,106 102,106 94,152 126,94 98,94" fill="url(#titanCyan)" />
+  <!-- Circuit Nodes -->
+  <circle cx="68" cy="75" r="4" fill="#38BDF8" />
+  <circle cx="132" cy="75" r="4" fill="#38BDF8" />
+  <line x1="68" y1="75" x2="85" y2="85" stroke="#38BDF8" stroke-width="2" opacity="0.6" />
+  <line x1="132" y1="75" x2="115" y2="85" stroke="#38BDF8" stroke-width="2" opacity="0.6" />
+</svg>

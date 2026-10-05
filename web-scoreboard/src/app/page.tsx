@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
-import { ScoreData, AdminCommand } from '@/types/cricket';
+import { ScoreData, AdminCommand, BrandingConfig, DEFAULT_BRANDING } from '@/types/cricket';
 import { ScoreboardHeader } from '@/components/ScoreboardHeader';
 import { BatsmenPanel } from '@/components/BatsmenPanel';
 import { BowlerPanel } from '@/components/BowlerPanel';
@@ -97,6 +97,7 @@ export default function ScoreboardPage() {
   const [scoreData, setScoreData] = useState<ScoreData>(DEFAULT_SCORE);
   const [scoreFlash, setScoreFlash] = useState<boolean>(false);
   const [resultDismissed, setResultDismissed] = useState<boolean>(false);
+  const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
 
   // Ad State (Split screen)
   const [adActive, setAdActive] = useState<boolean>(false);
@@ -117,8 +118,34 @@ export default function ScoreboardPage() {
       } else {
         setIsModalOpen(true);
       }
+
+      // Load Branding Config
+      try {
+        const savedBranding = localStorage.getItem('cricket_branding_config');
+        if (savedBranding) {
+          setBranding(JSON.parse(savedBranding));
+        }
+      } catch (err) {
+        console.error('Failed to parse branding config:', err);
+      }
     }, 0);
-    return () => clearTimeout(timer);
+
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === 'cricket_branding_config' && e.newValue) {
+        try {
+          setBranding(JSON.parse(e.newValue));
+        } catch (err) {
+          console.error('Failed to parse updated branding config:', err);
+        }
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, []);
 
   const handleConnect = (ip: string) => {
@@ -270,14 +297,21 @@ export default function ScoreboardPage() {
             match={scoreData.match}
             currentInnings={scoreData.currentInnings}
             scoreFlash={scoreFlash}
+            branding={branding}
           />
 
           {/* Middle Row: Batsmen + Bowler/Partnership/Target */}
           <div className="grid grid-cols-1 lg:grid-cols-[1.4fr_1fr] gap-4 flex-1">
-            <BatsmenPanel batsmen={scoreData.currentInnings?.batsmen} />
+            <BatsmenPanel
+              batsmen={scoreData.currentInnings?.batsmen}
+              playerPhotos={branding.playerPhotos}
+            />
 
             <div className="flex flex-col gap-4">
-              <BowlerPanel bowler={scoreData.currentInnings?.currentBowler} />
+              <BowlerPanel
+                bowler={scoreData.currentInnings?.currentBowler}
+                playerPhotos={branding.playerPhotos}
+              />
               <PartnershipPanel partnership={scoreData.currentInnings?.partnership} />
               <ChasePanel
                 requiredRuns={scoreData.currentInnings?.requiredRuns}

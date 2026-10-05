@@ -378,22 +378,31 @@ export default function StadiumLedScoreboard() {
           {/* ════════════════ TOP HEADER BAR ════════════════ */}
           <div className="relative z-10 flex items-center justify-between pb-3 sm:pb-4 border-b-2 border-[#09414f]">
             {/* Team Name & Overs Badge */}
-            <div className="flex items-center gap-3 sm:gap-5">
+            <div className="flex items-center gap-3 sm:gap-6">
               <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-tight text-[#d4fc04] drop-shadow-[0_2px_10px_rgba(212,252,4,0.3)]">
                 {battingTeamName}
               </h1>
 
-              <div className="px-3 sm:px-4 py-1 sm:py-1.5 rounded bg-[#03161c] border border-[#0e4350] shadow-inner">
-                <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wide text-white">
-                  {totalOvers} OVERS
+              {/* Highlighted Overs Badge with large text size */}
+              <div className="px-3 sm:px-5 py-1 sm:py-2 rounded-xl bg-[#d4fc04] text-[#032026] border-2 border-[#e6ff40] shadow-[0_0_25px_rgba(212,252,4,0.4)] flex items-baseline gap-2">
+                <span className="text-xs sm:text-sm md:text-base font-black uppercase tracking-wider text-[#032026]/75">
+                  OVERS
+                </span>
+                <span className="text-2xl sm:text-4xl md:text-5xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight leading-none">
+                  {oversStr}
+                  <span className="text-base sm:text-2xl md:text-3xl font-bold opacity-75 ml-1">
+                    /{totalOvers}
+                  </span>
                 </span>
               </div>
             </div>
 
-            {/* Giant Top Score Figure (2-431) */}
+            {/* Giant Top Score Figure Highlighted with large text size */}
             <div className="flex items-center gap-4 sm:gap-8">
-              <div className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white drop-shadow-[0_4px_16px_rgba(255,255,255,0.25)]">
-                {scoreFormatted}
+              <div className="px-4 sm:px-6 py-1 rounded-2xl bg-[#021820]/90 border-2 border-[#165a6b] shadow-[0_0_35px_rgba(255,255,255,0.25)] flex items-center">
+                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white drop-shadow-[0_0_25px_rgba(255,255,255,0.7)] leading-none">
+                  {scoreFormatted}
+                </span>
               </div>
 
               {/* Digital Stadium Clock */}
@@ -480,17 +489,19 @@ export default function StadiumLedScoreboard() {
               <div className="pt-2 sm:pt-3 border-t-2 border-[#09414f] grid grid-cols-12 gap-3 sm:gap-4 items-center">
                 
                 {/* Wickets & Overs Emblem Box (3 cols) */}
-                <div className="col-span-3 flex items-center gap-3 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857]">
+                <div className="col-span-3 flex items-center gap-3 bg-[#021820] p-2.5 sm:p-3.5 rounded-xl border-2 border-[#145d70] shadow-[0_0_20px_rgba(212,252,4,0.25)]">
                   {/* Australian Southern Cross / Cricket Stars */}
-                  <div className="text-xl sm:text-2xl text-[#d4fc04] leading-none">
+                  <div className="text-2xl sm:text-3xl text-[#d4fc04] leading-none animate-pulse">
                     ✨
                   </div>
                   <div>
-                    <div className="text-2xl sm:text-4xl font-['Barlow_Condensed',sans-serif] font-black text-white leading-none">
+                    <div className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] leading-none drop-shadow-[0_0_15px_rgba(212,252,4,0.45)]">
                       {scoreFormatted}
                     </div>
-                    <div className="text-xs sm:text-sm font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-300 leading-tight mt-0.5">
-                      {oversStr} OVERS
+                    <div className="text-sm sm:text-lg md:text-xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-white leading-tight mt-1 flex items-center gap-1.5">
+                      <span className="px-2 py-0.5 rounded bg-[#093c4a] border border-[#145c6e] text-white">
+                        {oversStr} OVERS
+                      </span>
                     </div>
                   </div>
                 </div>

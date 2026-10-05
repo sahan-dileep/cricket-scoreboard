@@ -91,13 +91,24 @@ export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, score
           </div>
         </div>
         <div
-          className={`text-4xl md:text-6xl font-black tracking-tight mt-1 transition-all duration-300 ${
-            isTeam1Batting ? 'text-amber-400' : 'text-slate-200'
+          className={`font-black tracking-tight mt-1 transition-all duration-300 ${
+            isTeam1Batting
+              ? 'text-5xl md:text-7xl lg:text-8xl text-amber-400 drop-shadow-[0_0_24px_rgba(251,191,36,0.35)]'
+              : 'text-3xl md:text-5xl text-slate-300'
           } ${isTeam1Batting && scoreFlash ? 'scale-105 text-emerald-400' : ''}`}
         >
           {team1Score}
         </div>
-        <span className="text-sm md:text-base text-slate-400 font-medium">{team1Overs}</span>
+        {isTeam1Batting ? (
+          <div className="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 shadow-md">
+            <span className="text-[11px] uppercase font-black text-amber-300/80 tracking-wider">OVERS:</span>
+            <span className="text-base md:text-2xl font-black text-amber-300 tracking-wide">
+              {currentInnings.overs} ov
+            </span>
+          </div>
+        ) : (
+          <span className="text-sm md:text-base text-slate-400 font-medium">{team1Overs}</span>
+        )}
       </div>
 
       {/* Center VS & Branding */}
@@ -156,13 +167,24 @@ export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, score
           </div>
         </div>
         <div
-          className={`text-4xl md:text-6xl font-black tracking-tight mt-1 transition-all duration-300 ${
-            isTeam2Batting ? 'text-amber-400' : 'text-slate-200'
+          className={`font-black tracking-tight mt-1 transition-all duration-300 ${
+            isTeam2Batting
+              ? 'text-5xl md:text-7xl lg:text-8xl text-amber-400 drop-shadow-[0_0_24px_rgba(251,191,36,0.35)]'
+              : 'text-3xl md:text-5xl text-slate-300'
           } ${isTeam2Batting && scoreFlash ? 'scale-105 text-emerald-400' : ''}`}
         >
           {team2Score}
         </div>
-        <span className="text-sm md:text-base text-slate-400 font-medium">{team2Overs}</span>
+        {isTeam2Batting ? (
+          <div className="mt-1 inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-amber-500/20 border border-amber-500/40 shadow-md">
+            <span className="text-[11px] uppercase font-black text-amber-300/80 tracking-wider">OVERS:</span>
+            <span className="text-base md:text-2xl font-black text-amber-300 tracking-wide">
+              {currentInnings.overs} ov
+            </span>
+          </div>
+        ) : (
+          <span className="text-sm md:text-base text-slate-400 font-medium">{team2Overs}</span>
+        )}
       </div>
     </header>
   );

@@ -4,6 +4,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -14,6 +15,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cricket.scorer.data.model.TossChoice
@@ -33,7 +35,7 @@ fun SetupScreen(
     val scrollState = rememberScrollState()
 
     var tournamentName by remember { mutableStateOf("Annual Cricket Cup") }
-    var overs by remember { mutableStateOf(10) }
+    var oversText by remember { mutableStateOf("10") }
     var team1Name by remember { mutableStateOf("Tech Titans") }
     var team2Name by remember { mutableStateOf("Sales Strikers") }
 
@@ -115,21 +117,115 @@ fun SetupScreen(
                         )
                     )
 
-                    Text("Overs Per Side: $overs", color = Color.White, fontWeight = FontWeight.Medium)
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        for (ov in 10..15) {
-                            FilterChip(
-                                selected = overs == ov,
-                                onClick = { overs = ov },
-                                label = { Text("$ov") },
-                                colors = FilterChipDefaults.filterChipColors(
-                                    selectedContainerColor = CricketGreen,
-                                    selectedLabelColor = Color.White
+                    // Manual Overs Input with Stepper & Quick Presets
+                    val parsedOvers = oversText.toIntOrNull()
+                    val isValidOvers = parsedOvers != null && parsedOvers in 1..100
+                    val currentOvers = parsedOvers?.coerceIn(1, 100) ?: 10
+
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Overs Per Side: $currentOvers ov",
+                                color = Color.White,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 15.sp
+                            )
+                            Text(
+                                text = "${currentOvers * 6} balls / innings",
+                                color = PitchAmber,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp
+                            )
+                        }
+
+                        // Stepper row with direct manual number input
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val next = (currentOvers - 1).coerceAtLeast(1)
+                                    oversText = next.toString()
+                                },
+                                modifier = Modifier.size(52.dp),
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color(0xFF334155),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("-", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+
+                            OutlinedTextField(
+                                value = oversText,
+                                onValueChange = { input ->
+                                    val digitsOnly = input.filter { it.isDigit() }
+                                    if (digitsOnly.length <= 3) {
+                                        oversText = digitsOnly
+                                    }
+                                },
+                                label = { Text("Manual Overs (1 - 100)") },
+                                placeholder = { Text("e.g. 5, 8, 10, 15, 20") },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                singleLine = true,
+                                isError = !isValidOvers && oversText.isNotEmpty(),
+                                supportingText = {
+                                    if (!isValidOvers && oversText.isNotEmpty()) {
+                                        Text("Please enter valid overs (1 to 100)", color = CricketRed)
+                                    } else {
+                                        Text("Type manually or select a preset below", color = SlateGray)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = PitchAmber,
+                                    focusedLabelColor = PitchAmber,
+                                    unfocusedTextColor = Color.White,
+                                    focusedTextColor = Color.White,
+                                    errorBorderColor = CricketRed
                                 )
                             )
+
+                            FilledTonalIconButton(
+                                onClick = {
+                                    val next = (currentOvers + 1).coerceAtMost(100)
+                                    oversText = next.toString()
+                                },
+                                modifier = Modifier.size(52.dp),
+                                colors = IconButtonDefaults.filledTonalIconButtonColors(
+                                    containerColor = Color(0xFF334155),
+                                    contentColor = Color.White
+                                )
+                            ) {
+                                Text("+", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold)
+                            }
+                        }
+
+                        // Quick Preset Chips (Common Match Formats)
+                        Text("Quick Presets:", color = SlateGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            listOf(5, 6, 8, 10, 12, 15, 20).forEach { ov ->
+                                FilterChip(
+                                    selected = currentOvers == ov && isValidOvers,
+                                    onClick = { oversText = ov.toString() },
+                                    label = { Text("${ov} ov", fontSize = 11.sp) },
+                                    colors = FilterChipDefaults.filterChipColors(
+                                        selectedContainerColor = CricketGreen,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = Color(0xFF1E293B),
+                                        labelColor = Color.White.copy(alpha = 0.8f)
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -322,11 +418,12 @@ fun SetupScreen(
                 onClick = {
                     if (isSubmitting) return@Button
                     isSubmitting = true
+                    val parsedOversValue = oversText.toIntOrNull()?.coerceIn(1, 100) ?: 10
                     coroutineScope.launch {
                         try {
                             val tId = repository.createTournament(
                                 name = tournamentName.ifEmpty { "Cricket Tournament" },
-                                overs = overs,
+                                overs = parsedOversValue,
                                 playersPerSide = 11
                             )
 
@@ -355,7 +452,7 @@ fun SetupScreen(
                         }
                     }
                 },
-                enabled = !isSubmitting,
+                enabled = !isSubmitting && (oversText.toIntOrNull() != null && oversText.toIntOrNull()!! in 1..100),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),

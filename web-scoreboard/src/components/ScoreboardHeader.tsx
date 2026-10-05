@@ -9,31 +9,59 @@ interface Props {
 }
 
 export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, scoreFlash }) => {
-  const isTeam1Batting = currentInnings.battingTeam === match.team1;
+  const isMatchCompleted = Boolean(match.isCompleted || match.status === 'COMPLETED');
+  const isInnings1 = !isMatchCompleted && (match.status === 'INNINGS_1' || currentInnings.innings === 1 || match.currentInnings === 1);
+  const isTeam1Batting = !isMatchCompleted && currentInnings.battingTeam === match.team1;
+  const isTeam2Batting = !isMatchCompleted && (currentInnings.battingTeam === match.team2 || (!isTeam1Batting && !isInnings1));
 
-  const team1Score = isTeam1Batting
-    ? `${currentInnings.score}/${currentInnings.wickets}`
-    : match.innings1
-    ? `${match.innings1.score}/${match.innings1.wickets}`
-    : '—';
+  let team1Score = '—';
+  let team1Overs = '';
+  let team2Score = '—';
+  let team2Overs = '';
 
-  const team1Overs = isTeam1Batting
-    ? `(${currentInnings.overs} ov)`
-    : match.innings1
-    ? `(${match.innings1.overs} ov)`
-    : '';
-
-  const team2Score = !isTeam1Batting
-    ? `${currentInnings.score}/${currentInnings.wickets}`
-    : match.innings1
-    ? `${match.innings1.score}/${match.innings1.wickets}`
-    : '—';
-
-  const team2Overs = !isTeam1Batting
-    ? `(${currentInnings.overs} ov)`
-    : match.innings1
-    ? `(${match.innings1.overs} ov)`
-    : '';
+  if (isInnings1) {
+    // In Innings 1: ONLY the batting team has a score.
+    // The bowling team has NOT batted yet and must show "—" (Yet to bat).
+    if (isTeam1Batting) {
+      team1Score = `${currentInnings.score}/${currentInnings.wickets}`;
+      team1Overs = `(${currentInnings.overs} ov)`;
+      team2Score = '—';
+      team2Overs = 'Yet to bat';
+    } else {
+      team2Score = `${currentInnings.score}/${currentInnings.wickets}`;
+      team2Overs = `(${currentInnings.overs} ov)`;
+      team1Score = '—';
+      team1Overs = 'Yet to bat';
+    }
+  } else if (!isMatchCompleted) {
+    // In Innings 2: The chasing team shows live score.
+    // The team that batted in Innings 1 shows their completed 1st innings score.
+    if (isTeam1Batting) {
+      team1Score = `${currentInnings.score}/${currentInnings.wickets}`;
+      team1Overs = `(${currentInnings.overs} ov)`;
+      team2Score = match.innings1 ? `${match.innings1.score}/${match.innings1.wickets}` : '—';
+      team2Overs = match.innings1 ? `(${match.innings1.overs} ov)` : '';
+    } else {
+      team2Score = `${currentInnings.score}/${currentInnings.wickets}`;
+      team2Overs = `(${currentInnings.overs} ov)`;
+      team1Score = match.innings1 ? `${match.innings1.score}/${match.innings1.wickets}` : '—';
+      team1Overs = match.innings1 ? `(${match.innings1.overs} ov)` : '';
+    }
+  } else {
+    // Completed Match:
+    team1Score = match.innings1 ? `${match.innings1.score}/${match.innings1.wickets}` : '—';
+    team1Overs = match.innings1 ? `(${match.innings1.overs} ov)` : '';
+    team2Score = match.innings2
+      ? `${match.innings2.score}/${match.innings2.wickets}`
+      : currentInnings.battingTeam === match.team2
+      ? `${currentInnings.score}/${currentInnings.wickets}`
+      : '—';
+    team2Overs = match.innings2
+      ? `(${match.innings2.overs} ov)`
+      : currentInnings.battingTeam === match.team2
+      ? `(${currentInnings.overs} ov)`
+      : '';
+  }
 
   return (
     <header className="grid grid-cols-[1fr_auto_1fr] items-center bg-slate-900/90 border border-slate-700/80 rounded-2xl px-8 py-5 shadow-2xl backdrop-blur-md gap-6">
@@ -72,7 +100,7 @@ export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, score
       {/* Team 2 */}
       <div className="flex flex-col items-end text-right">
         <div className="flex items-center gap-2 justify-end">
-          {!isTeam1Batting && (
+          {isTeam2Batting && (
             <span className="text-xs bg-amber-500/20 text-amber-300 font-bold px-2 py-0.5 rounded-full border border-amber-500/40">
               BATTING
             </span>
@@ -83,8 +111,8 @@ export const ScoreboardHeader: React.FC<Props> = ({ match, currentInnings, score
         </div>
         <div
           className={`text-4xl md:text-6xl font-black tracking-tight transition-all duration-300 ${
-            !isTeam1Batting ? 'text-amber-400' : 'text-slate-200'
-          } ${!isTeam1Batting && scoreFlash ? 'scale-105 text-emerald-400' : ''}`}
+            isTeam2Batting ? 'text-amber-400' : 'text-slate-200'
+          } ${isTeam2Batting && scoreFlash ? 'scale-105 text-emerald-400' : ''}`}
         >
           {team2Score}
         </div>

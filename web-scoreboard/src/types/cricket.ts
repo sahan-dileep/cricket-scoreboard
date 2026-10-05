@@ -57,9 +57,15 @@ export interface MatchInfo {
     wickets: number;
     overs: string;
   };
+  innings2?: {
+    score: number;
+    wickets: number;
+    overs: string;
+  };
 }
 
 export interface CurrentInnings {
+  innings?: number;
   battingTeam: string;
   bowlingTeam?: string;
   score: number;

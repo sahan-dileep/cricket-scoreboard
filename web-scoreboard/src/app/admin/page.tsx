@@ -482,7 +482,9 @@ export default function AdminPage() {
 
           <div className="flex items-center gap-6">
             <div className="text-center">
-              <span className="text-xs text-slate-400 block font-semibold">Score</span>
+              <span className="text-xs text-slate-400 block font-semibold">
+                {previewScore.currentInnings?.battingTeam ? `${previewScore.currentInnings.battingTeam} (Batting)` : 'Score'}
+              </span>
               <span className="text-xl font-black text-amber-400">
                 {previewScore.currentInnings?.score}/{previewScore.currentInnings?.wickets}
               </span>

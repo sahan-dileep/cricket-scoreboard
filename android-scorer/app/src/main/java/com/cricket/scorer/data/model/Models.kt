@@ -185,7 +185,8 @@ data class MatchDto(
     val isCompleted: Boolean,
     val status: String,
     val result: String? = null,
-    val innings1: Innings1Dto? = null
+    val innings1: Innings1Dto? = null,
+    val innings2: Innings1Dto? = null
 )
 
 data class Innings1Dto(

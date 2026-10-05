@@ -770,6 +770,9 @@ class CricketRepository(
         val innings1Dto = state.innings1?.let {
             Innings1Dto(score = it.score, wickets = it.wickets, overs = it.oversString)
         }
+        val innings2Dto = state.innings2?.let {
+            Innings1Dto(score = it.score, wickets = it.wickets, overs = it.oversString)
+        }
 
         val matchDto = MatchDto(
             id = match.id,
@@ -780,7 +783,8 @@ class CricketRepository(
             isCompleted = match.status == MatchStatus.COMPLETED,
             status = match.status.name,
             result = match.result,
-            innings1 = innings1Dto
+            innings1 = innings1Dto,
+            innings2 = innings2Dto
         )
 
         val chaseDto = if (match.status == MatchStatus.INNINGS_2 || (match.status == MatchStatus.COMPLETED && state.innings2 != null)) {

@@ -282,16 +282,8 @@ export default function ScoreboardPage() {
       }}
     >
       {/* Top Bar with Connection and Navigation */}
-      <div className="flex items-center justify-between pb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🏏</span>
-          <h1 className="text-xl font-black uppercase tracking-wider text-slate-200">
-            Cricket Live TV Scoreboard
-          </h1>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <button
+      <div className="flex items-center justify-end pb-3 gap-3">
+        <button
             onClick={() => setViewMode('broadcast_scorecard')}
             className="text-xs px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black tracking-wider uppercase border border-emerald-300 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 cursor-pointer hover:scale-105"
             title="Switch to Real Cricket Full Scorecard (Shortcut: S)"
@@ -325,7 +317,6 @@ export default function ScoreboardPage() {
               : 'Disconnected (Click to set IP)'}
           </button>
         </div>
-      </div>
 
       {/* Main Scoreboard Layout (Grid + Optional Split Ad Panel) */}
       <div className="flex-1 flex flex-col lg:flex-row gap-5">

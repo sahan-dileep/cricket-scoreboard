@@ -630,34 +630,34 @@ export default function StadiumLedScoreboard() {
             </div>
 
             {/* ── RIGHT COLUMN: MATCH RATES & METRICS (3 cols) ── */}
-            <div className="col-span-3 bg-[#031920]/95 border-2 border-[#09414f] rounded-xl p-3 sm:p-4 flex flex-col justify-around shadow-2xl">
+            <div className="col-span-3 bg-[#031920]/95 border-2 border-[#09414f] rounded-xl p-3 sm:p-5 flex flex-col justify-between shadow-2xl">
               
               {/* Metric 1: Run Rate (RR) */}
-              <div className="flex flex-col items-center justify-center py-2 sm:py-3 border-b border-[#0d4654]">
-                <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
+              <div className="flex flex-col items-center justify-center py-2 sm:py-4 border-b border-[#0d4654]">
+                <span className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
                   {runRateVal}
                 </span>
-                <span className="text-sm sm:text-base md:text-lg font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400 mt-1">
+                <span className="text-base sm:text-xl md:text-2xl lg:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
                   RR
                 </span>
               </div>
 
               {/* Metric 2: Projected Score (Proj.) or Target */}
-              <div className="flex flex-col items-center justify-center py-2 sm:py-3 border-b border-[#0d4654]">
-                <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
+              <div className="flex flex-col items-center justify-center py-2 sm:py-4 border-b border-[#0d4654]">
+                <span className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
                   {projectedScore}
                 </span>
-                <span className="text-sm sm:text-base md:text-lg font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400 mt-1">
+                <span className="text-base sm:text-xl md:text-2xl lg:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
                   {isInnings2 ? 'TARGET' : 'Proj.'}
                 </span>
               </div>
 
               {/* Metric 3: Balls Remaining */}
-              <div className="flex flex-col items-center justify-center py-2 sm:py-3">
-                <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
+              <div className="flex flex-col items-center justify-center py-2 sm:py-4">
+                <span className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
                   {ballsRemaining}
                 </span>
-                <span className="text-sm sm:text-base md:text-lg font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400 mt-1">
+                <span className="text-base sm:text-xl md:text-2xl lg:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
                   Balls Rem
                 </span>
               </div>

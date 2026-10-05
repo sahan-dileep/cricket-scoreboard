@@ -1,0 +1,597 @@
+'use client';
+
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { ScoreData, Batsman, Bowler, BrandingConfig, DEFAULT_BRANDING, TeamData } from '@/types/cricket';
+import { ConnectionModal } from '@/components/ConnectionModal';
+
+// Authentic default data matching the Australian Stadium LED Scoreboard photo
+const PHOTO_DEMO_SCORE: ScoreData = {
+  match: {
+    team1: 'AUSTRALIA',
+    team2: 'SOUTH AFRICA',
+    totalOvers: 50,
+    status: 'INNINGS_1',
+    isCompleted: false,
+    result: null,
+  },
+  currentInnings: {
+    battingTeam: 'AUSTRALIA',
+    score: 431,
+    wickets: 2,
+    overs: '50.0',
+    runRate: 8.62,
+    extras: 21,
+    requiredRuns: null,
+    requiredOvers: null,
+    requiredRunRate: null,
+    currentBowler: {
+      name: 'MULDER',
+      overs: 7,
+      runs: 93,
+      wickets: 0,
+      economy: 13.28,
+    },
+    batsmen: [
+      {
+        name: 'Head',
+        runs: 142,
+        balls: 103,
+        fours: 16,
+        sixes: 6,
+        onStrike: false,
+        isOut: true,
+        dismissalInfo: 'c Brevis b Maharaj',
+      },
+      {
+        name: 'Marsh',
+        runs: 100,
+        balls: 106,
+        fours: 8,
+        sixes: 4,
+        onStrike: false,
+        isOut: true,
+        dismissalInfo: 'c Rickelton b Muthusamy',
+      },
+      {
+        name: 'Green',
+        runs: 118,
+        balls: 55,
+        fours: 10,
+        sixes: 7,
+        onStrike: true,
+        isStriker: true,
+        isOut: false,
+        dismissalInfo: 'not out',
+      },
+      {
+        name: 'Carey',
+        runs: 50,
+        balls: 37,
+        fours: 5,
+        sixes: 1,
+        onStrike: false,
+        isStriker: false,
+        isOut: false,
+        dismissalInfo: 'not out',
+      },
+    ],
+  },
+};
+
+const DEFAULT_LINEUP_AUS = [
+  'Head',
+  'Marsh',
+  'Green',
+  'Carey',
+  'Labuschagne',
+  'Inglis',
+  'Connolly',
+  'Bartlett',
+  'Abbott',
+  'Ellis',
+  'Zampa',
+];
+
+export default function StadiumLedScoreboard() {
+  const [androidIp, setAndroidIp] = useState<string>('');
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+  const [connStatus, setConnStatus] = useState<'connected' | 'disconnected'>('disconnected');
+  const [scoreData, setScoreData] = useState<ScoreData>(PHOTO_DEMO_SCORE);
+  const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
+  const [teams, setTeams] = useState<TeamData[]>([]);
+  const [scoreFormat, setScoreFormat] = useState<'W-R' | 'R-W'>('W-R'); // Default 'W-R' e.g. 2-431
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [hasLiveConnection, setHasLiveConnection] = useState<boolean>(false);
+
+  // Real-time clock update (e.g. "5:57 PM")
+  useEffect(() => {
+    const updateClock = () => {
+      const now = new Date();
+      let hours = now.getHours();
+      const minutes = now.getMinutes();
+      const ampm = hours >= 12 ? 'PM' : 'AM';
+      hours = hours % 12;
+      hours = hours ? hours : 12; // 12-hour format
+      const minutesStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
+      setCurrentTime(`${hours}:${minutesStr} ${ampm}`);
+    };
+    updateClock();
+    const interval = setInterval(updateClock, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Keyboard navigation & hotkeys
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === 'c' || e.key === 'C') {
+        setIsModalOpen(true);
+      } else if (e.key === 't' || e.key === 'T') {
+        setScoreFormat((prev) => (prev === 'W-R' ? 'R-W' : 'W-R'));
+      } else if (e.key === 'f' || e.key === 'F') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      } else if (e.key === 'a' || e.key === 'A') {
+        window.location.href = '/admin';
+      } else if (e.key === 'b' || e.key === 'B' || e.key === 'Escape') {
+        window.location.href = '/';
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Load IP and branding from localStorage
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      const savedIp = localStorage.getItem('cricket_android_ip');
+      if (savedIp) {
+        setAndroidIp(savedIp);
+      }
+
+      // Branding
+      try {
+        const savedBranding = localStorage.getItem('cricket_branding_config');
+        if (savedBranding) {
+          setBranding(JSON.parse(savedBranding));
+        }
+      } catch {}
+
+      // Teams cache
+      try {
+        const cachedTeams = localStorage.getItem('cricket_teams_cache');
+        if (cachedTeams) {
+          setTeams(JSON.parse(cachedTeams));
+        }
+      } catch {}
+    }, 0);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // 2s polling loop with Android Scorer
+  useEffect(() => {
+    if (!androidIp) return;
+    let isSubscribed = true;
+
+    const fetchScore = async () => {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 1800);
+
+        const res = await fetch(`http://${androidIp}:8080/api/score`, {
+          signal: controller.signal,
+        });
+        clearTimeout(timeoutId);
+
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const data: ScoreData = await res.json();
+
+        if (isSubscribed) {
+          setConnStatus('connected');
+          setHasLiveConnection(true);
+          setScoreData(data);
+        }
+      } catch {
+        if (isSubscribed) {
+          setConnStatus('disconnected');
+        }
+      }
+    };
+
+    fetchScore();
+    const interval = setInterval(fetchScore, 2000);
+    return () => {
+      isSubscribed = false;
+      clearInterval(interval);
+    };
+  }, [androidIp]);
+
+  const handleConnect = (ip: string) => {
+    setAndroidIp(ip);
+    localStorage.setItem('cricket_android_ip', ip);
+    setIsModalOpen(false);
+  };
+
+  const match = scoreData.match;
+  const currentInnings = scoreData.currentInnings;
+
+  // Batting team name
+  const battingTeamName = currentInnings?.battingTeam || match?.team1 || 'AUSTRALIA';
+  const totalOvers = match?.totalOvers || 50;
+
+  // Score display strings
+  const scoreNum = currentInnings?.score ?? 0;
+  const wicketsNum = currentInnings?.wickets ?? 0;
+  const scoreFormatted =
+    scoreFormat === 'W-R'
+      ? `${wicketsNum}-${scoreNum}` // Photo style: 2-431
+      : `${scoreNum}/${wicketsNum}`; // Traditional style: 431/2
+
+  // Overs bowled parse
+  const oversStr = currentInnings?.overs ? String(currentInnings.overs) : '0.0';
+  const [overMajorStr, overBallsStr] = oversStr.split('.');
+  const oversCompleted = parseInt(overMajorStr || '0', 10);
+  const ballsInCurrentOver = parseInt(overBallsStr || '0', 10);
+  const totalBallsBowled = oversCompleted * 6 + ballsInCurrentOver;
+  const totalQuotaBalls = totalOvers * 6;
+  const ballsRemaining = Math.max(0, totalQuotaBalls - totalBallsBowled);
+
+  // Run Rate
+  const runRateVal = currentInnings?.runRate
+    ? Number(currentInnings.runRate).toFixed(2)
+    : totalBallsBowled > 0
+    ? ((scoreNum / totalBallsBowled) * 6).toFixed(2)
+    : '0.00';
+
+  // Projected Score or Target
+  const isInnings2 = match?.status === 'INNINGS_2' || currentInnings?.innings === 2;
+  const projectedScore = useMemo(() => {
+    if (isInnings2) {
+      return currentInnings?.requiredRuns != null
+        ? String(currentInnings.requiredRuns)
+        : currentInnings?.requiredRunRate != null
+        ? currentInnings.requiredRunRate.toFixed(2)
+        : '—';
+    }
+    const rr = parseFloat(runRateVal);
+    if (!rr || rr <= 0) return scoreNum > 0 ? String(scoreNum) : '—';
+    // If 50 overs already finished, project current score
+    if (ballsRemaining === 0) return String(scoreNum);
+    const proj = Math.round(scoreNum + (rr * ballsRemaining) / 6);
+    return String(proj);
+  }, [isInnings2, currentInnings, runRateVal, scoreNum, ballsRemaining]);
+
+  // Build the 11-player batting card
+  const fullBattingLineup = useMemo(() => {
+    const recordedBatsmen = currentInnings?.batsmen || [];
+    const recordedNames = new Set(recordedBatsmen.map((b) => b.name.toLowerCase().trim()));
+
+    // Try to find full team roster from cached teams
+    const currentTeam = teams.find(
+      (t) => t.name.toLowerCase().trim() === battingTeamName.toLowerCase().trim()
+    );
+
+    let rosterPlayerNames: string[] = [];
+    if (currentTeam?.players && currentTeam.players.length > 0) {
+      rosterPlayerNames = currentTeam.players;
+    } else if (!hasLiveConnection) {
+      rosterPlayerNames = DEFAULT_LINEUP_AUS;
+    } else {
+      // Use recorded plus placeholders if under 11
+      rosterPlayerNames = recordedBatsmen.map((b) => b.name);
+    }
+
+    // Build ordered list of 11 players
+    const fullList: Array<{
+      name: string;
+      dismissal: string;
+      runs: number | null;
+      balls: number | null;
+      isCurrentlyBatting: boolean;
+      hasBatted: boolean;
+    }> = [];
+
+    // First add recorded batsmen in order
+    recordedBatsmen.forEach((b) => {
+      const isNotOut = !b.isOut;
+      const isCurrentlyBatting = isNotOut;
+      fullList.push({
+        name: b.name,
+        dismissal: isNotOut ? 'not out' : b.dismissalInfo || 'out',
+        runs: b.runs,
+        balls: b.balls,
+        isCurrentlyBatting,
+        hasBatted: true,
+      });
+    });
+
+    // Then append players from roster who haven't batted yet
+    rosterPlayerNames.forEach((name) => {
+      if (!recordedNames.has(name.toLowerCase().trim()) && fullList.length < 11) {
+        fullList.push({
+          name,
+          dismissal: '',
+          runs: null,
+          balls: null,
+          isCurrentlyBatting: false,
+          hasBatted: false,
+        });
+      }
+    });
+
+    // Fill up to 11 if still fewer
+    while (fullList.length < 11) {
+      fullList.push({
+        name: `Player ${fullList.length + 1}`,
+        dismissal: '',
+        runs: null,
+        balls: null,
+        isCurrentlyBatting: false,
+        hasBatted: false,
+      });
+    }
+
+    return fullList.slice(0, 11);
+  }, [currentInnings?.batsmen, teams, battingTeamName, hasLiveConnection]);
+
+  // Active batsmen at crease
+  const activeBatsmen = useMemo(() => {
+    const batsmen = currentInnings?.batsmen || [];
+    const notOut = batsmen.filter((b) => !b.isOut);
+    if (notOut.length > 0) return notOut.slice(0, 2);
+    return batsmen.slice(-2);
+  }, [currentInnings?.batsmen]);
+
+  const striker = activeBatsmen.find((b) => b.onStrike || b.isStriker) || activeBatsmen[0];
+  const nonStriker = activeBatsmen.find((b) => b !== striker) || activeBatsmen[1];
+
+  // Current Bowler
+  const currentBowler = currentInnings?.currentBowler;
+
+  return (
+    <div className="h-screen w-screen bg-[#020b0d] text-slate-100 flex items-center justify-center p-2 sm:p-4 overflow-hidden select-none font-sans">
+      {/* Stadium Steel Outer Gantry / LED Bezel Frame */}
+      <div className="relative w-full max-w-[1920px] aspect-[16/9] max-h-screen bg-[#03151a] border-[8px] sm:border-[12px] md:border-[16px] border-[#0a232b] rounded-md shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden">
+        
+        {/* LED Matrix Screen Surface with angled shard background */}
+        <div
+          className="relative flex-1 flex flex-col p-4 sm:p-6 md:p-8"
+          style={{
+            background:
+              'linear-gradient(118deg, #093945 0%, #072a33 46%, #052128 46.5%, #03181e 100%)',
+          }}
+        >
+          {/* Subtle LED Mesh Scanline Pattern */}
+          <div
+            className="absolute inset-0 pointer-events-none opacity-20"
+            style={{
+              backgroundImage:
+                'radial-gradient(rgba(255,255,255,0.18) 1px, transparent 1px)',
+              backgroundSize: '4px 4px',
+            }}
+          />
+
+          {/* ════════════════ TOP HEADER BAR ════════════════ */}
+          <div className="relative z-10 flex items-center justify-between pb-3 sm:pb-4 border-b-2 border-[#09414f]">
+            {/* Team Name & Overs Badge */}
+            <div className="flex items-center gap-3 sm:gap-5">
+              <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-tight text-[#d4fc04] drop-shadow-[0_2px_10px_rgba(212,252,4,0.3)]">
+                {battingTeamName}
+              </h1>
+
+              <div className="px-3 sm:px-4 py-1 sm:py-1.5 rounded bg-[#03161c] border border-[#0e4350] shadow-inner">
+                <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wide text-white">
+                  {totalOvers} OVERS
+                </span>
+              </div>
+            </div>
+
+            {/* Giant Top Score Figure (2-431) */}
+            <div className="flex items-center gap-4 sm:gap-8">
+              <div className="text-4xl sm:text-6xl md:text-7xl lg:text-8xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white drop-shadow-[0_4px_16px_rgba(255,255,255,0.25)]">
+                {scoreFormatted}
+              </div>
+
+              {/* Digital Stadium Clock */}
+              <div className="px-3 sm:px-4 py-1.5 sm:py-2 rounded bg-[#03181f] border border-[#0d4554] shadow-inner">
+                <span className="text-base sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-[#38bdf8] drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]">
+                  {currentTime || '5:57 PM'}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* ════════════════ MAIN BODY: 2 COLUMNS ════════════════ */}
+          <div className="relative z-10 flex-1 grid grid-cols-12 gap-4 sm:gap-6 pt-3 sm:pt-4 min-h-0">
+            
+            {/* ── LEFT COLUMN: 11-MAN BATTING CARD & CREASE STRIP (9 cols) ── */}
+            <div className="col-span-9 flex flex-col justify-between min-h-0">
+              
+              {/* Batting Card Roster (11 Rows) */}
+              <div className="flex flex-col gap-1 sm:gap-1.5 flex-1 justify-around min-h-0 pr-2">
+                {fullBattingLineup.map((player, idx) => {
+                  const isHighlighted = player.isCurrentlyBatting;
+
+                  return (
+                    <div
+                      key={idx}
+                      className={`relative flex items-center justify-between px-3 sm:px-4 py-0.5 sm:py-1 rounded transition-all ${
+                        isHighlighted
+                          ? 'bg-[#d4fc04] text-[#032026] shadow-[0_0_20px_rgba(212,252,4,0.45)] ring-1 ring-[#e6ff40]'
+                          : 'text-white/90 hover:bg-white/5'
+                      }`}
+                    >
+                      {/* Left: Player Name */}
+                      <span
+                        className={`w-36 sm:w-48 md:w-56 text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] uppercase tracking-tight truncate ${
+                          isHighlighted ? 'font-black text-[#032026]' : 'font-bold text-white'
+                        }`}
+                      >
+                        {player.name}
+                      </span>
+
+                      {/* Center: Dismissal Description */}
+                      <span
+                        className={`flex-1 text-center text-sm sm:text-lg md:text-xl font-['Barlow_Condensed',sans-serif] tracking-wide truncate px-2 ${
+                          isHighlighted
+                            ? 'font-black text-[#032026]'
+                            : 'font-semibold text-slate-300/80 italic'
+                        }`}
+                      >
+                        {player.dismissal}
+                      </span>
+
+                      {/* Right: Score (Runs and Balls) */}
+                      <span
+                        className={`w-28 sm:w-36 text-right text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] tabular-nums ${
+                          isHighlighted ? 'font-black text-[#032026]' : 'font-black text-white'
+                        }`}
+                      >
+                        {player.hasBatted && player.runs != null ? (
+                          <>
+                            <span>{player.runs}</span>
+                            <span
+                              className={`text-sm sm:text-lg md:text-xl ml-1.5 ${
+                                isHighlighted ? 'text-[#032026]/80 font-bold' : 'text-slate-300 font-semibold'
+                              }`}
+                            >
+                              ({player.balls ?? 0})
+                            </span>
+                          </>
+                        ) : null}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Extras Pill (Bottom Right of batting list) */}
+              <div className="flex justify-end pt-2">
+                <div className="px-4 py-1 rounded bg-[#d4fc04] text-[#032026] font-['Barlow_Condensed',sans-serif] font-black uppercase text-base sm:text-xl md:text-2xl tracking-wider shadow-[0_0_15px_rgba(212,252,4,0.3)]">
+                  EXTRAS {currentInnings?.extras ?? 21}
+                </div>
+              </div>
+
+              {/* ── BOTTOM STRIP: MATCH CREASE & BOWLER ── */}
+              <div className="pt-2 sm:pt-3 border-t-2 border-[#09414f] grid grid-cols-12 gap-3 sm:gap-4 items-center">
+                
+                {/* Wickets & Overs Emblem Box (3 cols) */}
+                <div className="col-span-3 flex items-center gap-3 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857]">
+                  {/* Australian Southern Cross / Cricket Stars */}
+                  <div className="text-xl sm:text-2xl text-[#d4fc04] leading-none">
+                    ✨
+                  </div>
+                  <div>
+                    <div className="text-2xl sm:text-4xl font-['Barlow_Condensed',sans-serif] font-black text-white leading-none">
+                      {scoreFormatted}
+                    </div>
+                    <div className="text-xs sm:text-sm font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-300 leading-tight mt-0.5">
+                      {oversStr} OVERS
+                    </div>
+                  </div>
+                </div>
+
+                {/* Active Batsmen Box (5 cols) */}
+                <div className="col-span-5 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857] flex flex-col justify-center gap-1">
+                  {/* Batsman 1 (Striker) */}
+                  <div className="flex items-center justify-between text-base sm:text-xl md:text-2xl font-['Barlow_Condensed',sans-serif] font-black">
+                    <span className="text-white flex items-center gap-1 truncate">
+                      <span className="text-[#d4fc04] font-bold">/</span>
+                      <span className="uppercase">{striker?.name || 'GREEN'}</span>
+                    </span>
+                    <span className="text-[#d4fc04] tabular-nums font-black ml-2">
+                      {striker?.runs ?? 118}{' '}
+                      <span className="text-slate-300 text-xs sm:text-base font-bold">
+                        {striker?.balls ?? 55}
+                      </span>
+                    </span>
+                  </div>
+
+                  {/* Batsman 2 (Non-Striker) */}
+                  <div className="flex items-center justify-between text-base sm:text-xl md:text-2xl font-['Barlow_Condensed',sans-serif] font-bold">
+                    <span className="text-slate-300 uppercase truncate">
+                      {nonStriker?.name || 'CAREY'}
+                    </span>
+                    <span className="text-white tabular-nums font-black ml-2">
+                      {nonStriker?.runs ?? 50}{' '}
+                      <span className="text-slate-300 text-xs sm:text-base font-semibold">
+                        {nonStriker?.balls ?? 37}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* Current Bowler Box (4 cols) */}
+                <div className="col-span-4 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857] flex flex-col justify-center">
+                  <div className="text-xs sm:text-sm font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400">
+                    BOWLER
+                  </div>
+                  <div className="flex items-baseline justify-between">
+                    <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white truncate">
+                      {currentBowler?.name || 'MULDER'}
+                    </span>
+                    <span className="text-xl sm:text-3xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] tabular-nums ml-2">
+                      {currentBowler?.wickets ?? 0}-{currentBowler?.runs ?? 93}{' '}
+                      <span className="text-slate-300 text-xs sm:text-lg font-bold">
+                        {currentBowler?.overs ?? 7}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+
+              </div>
+            </div>
+
+            {/* ── RIGHT COLUMN: BIG MATCH RATES & METRICS (3 cols) ── */}
+            <div className="col-span-3 bg-[#031920]/95 border-2 border-[#09414f] rounded-xl p-3 sm:p-5 flex flex-col justify-between shadow-2xl">
+              
+              {/* Metric 1: Run Rate (RR) */}
+              <div className="flex flex-col items-center justify-center py-2 sm:py-4 border-b border-[#0d4654]">
+                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+                  {runRateVal}
+                </span>
+                <span className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
+                  RR
+                </span>
+              </div>
+
+              {/* Metric 2: Projected Score (Proj.) or Target */}
+              <div className="flex flex-col items-center justify-center py-2 sm:py-4 border-b border-[#0d4654]">
+                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+                  {projectedScore}
+                </span>
+                <span className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
+                  {isInnings2 ? 'TARGET' : 'Proj.'}
+                </span>
+              </div>
+
+              {/* Metric 3: Balls Remaining */}
+              <div className="flex flex-col items-center justify-center py-2 sm:py-4">
+                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+                  {ballsRemaining}
+                </span>
+                <span className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
+                  Balls Rem
+                </span>
+              </div>
+
+            </div>
+
+          </div>
+
+        </div>
+      </div>
+
+      {/* Hidden Connection Modal (Triggerable via 'C' hotkey) */}
+      <ConnectionModal
+        isOpen={isModalOpen}
+        initialIp={androidIp}
+        onConnect={handleConnect}
+      />
+    </div>
+  );
+}

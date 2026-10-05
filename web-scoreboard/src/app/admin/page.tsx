@@ -702,12 +702,21 @@ export default function AdminPage() {
           </p>
         </div>
 
-        <Link
-          href="/"
-          className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 transition-colors flex items-center gap-2 text-sm shadow-md cursor-pointer"
-        >
-          📺 Open TV Scoreboard
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/simple"
+            className="px-4 py-2.5 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 font-bold border border-emerald-500/40 transition-colors flex items-center gap-2 text-sm shadow-md cursor-pointer"
+            title="Open Stadium Big Screen LED Scoreboard"
+          >
+            🏟️ Stadium Scoreboard
+          </Link>
+          <Link
+            href="/"
+            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 transition-colors flex items-center gap-2 text-sm shadow-md cursor-pointer"
+          >
+            📺 Open TV Scoreboard
+          </Link>
+        </div>
       </div>
 
       {/* Modern 5-Tab Navigation Bar with High-Contrast Active Pills & Dynamic Status Badges */}
@@ -2015,8 +2024,17 @@ export default function AdminPage() {
             </button>
 
             <Link
+              href="/simple"
+              className="px-3.5 py-2 rounded-xl bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ml-1"
+              title="Open Stadium Big Screen LED Scoreboard"
+            >
+              <span>🏟️</span>
+              <span className="hidden md:inline">Stadium Screen</span>
+            </Link>
+
+            <Link
               href="/"
-              className="px-3.5 py-2 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ml-1"
+              className="px-3.5 py-2 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5"
             >
               <span>📺</span>
               <span className="hidden md:inline">TV Screen</span>

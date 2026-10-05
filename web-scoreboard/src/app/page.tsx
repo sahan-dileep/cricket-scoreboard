@@ -120,6 +120,8 @@ export default function ScoreboardPage() {
         setIsModalOpen(true);
       } else if (e.key === 'a' || e.key === 'A') {
         window.location.href = '/admin';
+      } else if (e.key === 'l' || e.key === 'L') {
+        window.location.href = '/simple';
       }
     };
     window.addEventListener('keydown', handleKeyDown);

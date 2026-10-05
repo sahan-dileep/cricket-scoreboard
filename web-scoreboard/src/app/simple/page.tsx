@@ -429,15 +429,15 @@ export default function StadiumLedScoreboard() {
 
             {/* Giant Top Score Figure Highlighted with large text size (No glow) */}
             <div className="flex items-center gap-4 sm:gap-8">
-              <div className="px-4 sm:px-6 py-1 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center">
-                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white leading-none">
+              <div className="px-5 sm:px-8 py-1.5 sm:py-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center">
+                <span className="text-6xl sm:text-8xl md:text-9xl lg:text-[10.5rem] xl:text-[11.5rem] font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white leading-none">
                   {scoreFormatted}
                 </span>
               </div>
 
               {/* Digital Stadium Clock */}
               <div className="px-3 sm:px-4 py-1.5 sm:py-2 rounded bg-[#03181f] border border-[#0d4554] shadow-inner">
-                <span className="text-base sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-[#38bdf8] drop-shadow-[0_0_8px_rgba(56,189,248,0.4)]">
+                <span className="text-base sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-[#38bdf8]">
                   {currentTime || '5:57 PM'}
                 </span>
               </div>
@@ -536,21 +536,15 @@ export default function StadiumLedScoreboard() {
               {/* ── BOTTOM STRIP: MATCH CREASE & BOWLER ── */}
               <div className="pt-2 sm:pt-3 border-t-2 border-[#09414f] grid grid-cols-12 gap-3 sm:gap-4 items-center">
                 
-                {/* Wickets & Overs Emblem Box (3 cols - No score glow) */}
-                <div className="col-span-3 flex items-center gap-3 bg-[#021820] p-2.5 sm:p-3.5 rounded-xl border-2 border-[#145d70]">
-                  {/* Australian Southern Cross / Cricket Stars */}
-                  <div className="text-2xl sm:text-3xl text-[#d4fc04] leading-none animate-pulse">
-                    ✨
+                {/* Wickets & Overs Box (3 cols - No score glow, icon removed) */}
+                <div className="col-span-3 flex flex-col justify-center bg-[#021820] p-2.5 sm:p-3.5 rounded-xl border-2 border-[#145d70]">
+                  <div className="text-4xl sm:text-6xl md:text-7xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] leading-none tracking-tight">
+                    {scoreFormatted}
                   </div>
-                  <div>
-                    <div className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] leading-none">
-                      {scoreFormatted}
-                    </div>
-                    <div className="text-sm sm:text-lg md:text-xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-white leading-tight mt-1 flex items-center gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-[#093c4a] border border-[#145c6e] text-white">
-                        {oversStr} OVERS
-                      </span>
-                    </div>
+                  <div className="text-sm sm:text-lg md:text-xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-white leading-tight mt-1 flex items-center gap-1.5">
+                    <span className="px-2.5 py-0.5 rounded bg-[#093c4a] border border-[#145c6e] text-white">
+                      {oversStr} OVERS
+                    </span>
                   </div>
                 </div>
 
@@ -635,35 +629,35 @@ export default function StadiumLedScoreboard() {
               </div>
             </div>
 
-            {/* ── RIGHT COLUMN: BIG MATCH RATES & METRICS (3 cols) ── */}
-            <div className="col-span-3 bg-[#031920]/95 border-2 border-[#09414f] rounded-xl p-3 sm:p-5 flex flex-col justify-between shadow-2xl">
+            {/* ── RIGHT COLUMN: MATCH RATES & METRICS (3 cols) ── */}
+            <div className="col-span-3 bg-[#031920]/95 border-2 border-[#09414f] rounded-xl p-3 sm:p-4 flex flex-col justify-around shadow-2xl">
               
               {/* Metric 1: Run Rate (RR) */}
-              <div className="flex flex-col items-center justify-center py-2 sm:py-4 border-b border-[#0d4654]">
-                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+              <div className="flex flex-col items-center justify-center py-2 sm:py-3 border-b border-[#0d4654]">
+                <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
                   {runRateVal}
                 </span>
-                <span className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
+                <span className="text-sm sm:text-base md:text-lg font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400 mt-1">
                   RR
                 </span>
               </div>
 
               {/* Metric 2: Projected Score (Proj.) or Target */}
-              <div className="flex flex-col items-center justify-center py-2 sm:py-4 border-b border-[#0d4654]">
-                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+              <div className="flex flex-col items-center justify-center py-2 sm:py-3 border-b border-[#0d4654]">
+                <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
                   {projectedScore}
                 </span>
-                <span className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
+                <span className="text-sm sm:text-base md:text-lg font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400 mt-1">
                   {isInnings2 ? 'TARGET' : 'Proj.'}
                 </span>
               </div>
 
               {/* Metric 3: Balls Remaining */}
-              <div className="flex flex-col items-center justify-center py-2 sm:py-4">
-                <span className="text-5xl sm:text-7xl md:text-8xl lg:text-9xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums drop-shadow-[0_2px_12px_rgba(255,255,255,0.2)]">
+              <div className="flex flex-col items-center justify-center py-2 sm:py-3">
+                <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-white tracking-tight leading-none tabular-nums">
                   {ballsRemaining}
                 </span>
-                <span className="text-xl sm:text-3xl md:text-4xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-slate-300 mt-1">
+                <span className="text-sm sm:text-base md:text-lg font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400 mt-1">
                   Balls Rem
                 </span>
               </div>

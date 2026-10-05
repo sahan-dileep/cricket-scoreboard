@@ -410,17 +410,17 @@ export default function StadiumLedScoreboard() {
               </div>
             </div>
 
-            {/* Giant Top Score Figure & Matching-Height Stadium Watch */}
-            <div className="flex items-stretch gap-4 sm:gap-6">
-              <div className="px-5 sm:px-8 py-1.5 sm:py-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center justify-center">
+            {/* Giant Top Score Figure Highlighted with large text size (No glow) */}
+            <div className="flex items-center gap-4 sm:gap-8">
+              <div className="px-5 sm:px-8 py-1.5 sm:py-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center">
                 <span className="text-6xl sm:text-8xl md:text-9xl lg:text-[10.5rem] xl:text-[11.5rem] font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white leading-none">
                   {scoreFormatted}
                 </span>
               </div>
 
-              {/* Analog Stadium Watch (Same height as score box) */}
-              <div className="aspect-square self-stretch p-1.5 sm:p-2.5 rounded-2xl bg-[#021820] border-2 border-[#165a6b] shadow-xl flex items-center justify-center shrink-0">
-                <AnalogWatch className="w-full h-full" />
+              {/* Analog Stadium Watch */}
+              <div className="p-1 sm:p-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] shadow-xl flex items-center justify-center">
+                <AnalogWatch className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28" />
               </div>
             </div>
           </div>

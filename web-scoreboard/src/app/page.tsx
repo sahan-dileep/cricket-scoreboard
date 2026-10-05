@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import Link from 'next/link';
 import { ScoreData, AdminCommand, BrandingConfig, DEFAULT_BRANDING } from '@/types/cricket';
 import { ScoreboardHeader } from '@/components/ScoreboardHeader';
 import { BatsmenPanel } from '@/components/BatsmenPanel';
@@ -114,9 +113,13 @@ export default function ScoreboardPage() {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
       if (e.key === 's' || e.key === 'S') {
-        if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
         setViewMode((prev) => (prev === 'crease' ? 'broadcast_scorecard' : 'crease'));
+      } else if (e.key === 'c' || e.key === 'C') {
+        setIsModalOpen(true);
+      } else if (e.key === 'a' || e.key === 'A') {
+        window.location.href = '/admin';
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -281,43 +284,6 @@ export default function ScoreboardPage() {
         backgroundColor: '#040d1a',
       }}
     >
-      {/* Top Bar with Connection and Navigation */}
-      <div className="flex items-center justify-end pb-3 gap-3">
-        <button
-            onClick={() => setViewMode('broadcast_scorecard')}
-            className="text-xs px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black tracking-wider uppercase border border-emerald-300 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 cursor-pointer hover:scale-105"
-            title="Switch to Real Cricket Full Scorecard (Shortcut: S)"
-          >
-            <span>🎮</span>
-            <span>RC20 Scorecard</span>
-          </button>
-
-          <Link
-            href="/admin"
-            className="text-xs px-3.5 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 transition-colors backdrop-blur-sm"
-          >
-            🎛️ Admin Panel
-          </Link>
-
-          <button
-            onClick={() => setIsModalOpen(true)}
-            className={`text-xs px-3.5 py-1.5 rounded-full font-bold border flex items-center gap-2 transition-all cursor-pointer backdrop-blur-sm ${
-              connStatus === 'connected'
-                ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
-                : 'bg-rose-500/10 border-rose-500/40 text-rose-400'
-            }`}
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                connStatus === 'connected' ? 'bg-emerald-400 animate-pulse' : 'bg-rose-400'
-              }`}
-            />
-            {connStatus === 'connected'
-              ? `Connected (${androidIp})`
-              : 'Disconnected (Click to set IP)'}
-          </button>
-        </div>
-
       {/* Main Scoreboard Layout (Grid + Optional Split Ad Panel) */}
       <div className="flex-1 flex flex-col lg:flex-row gap-5">
         <div className="flex-1 flex flex-col justify-between gap-4">
@@ -385,60 +351,6 @@ export default function ScoreboardPage() {
 
       {/* Bottom Papare Music Animated Waveform Bar */}
       <MusicBar isPlaying={musicPlaying} audioSrc={musicSrc} loop={true} />
-
-      {/* Docked Quick Broadcast Actions Bar at the bottom of the scoreboard */}
-      <div
-        className={`fixed left-1/2 -translate-x-1/2 z-40 bg-slate-900/90 border border-slate-700/80 backdrop-blur-md rounded-full shadow-2xl px-4 py-2 flex items-center gap-3 transition-all duration-300 ${
-          musicPlaying ? 'bottom-16' : 'bottom-3'
-        }`}
-      >
-        <div className="flex items-center gap-1.5 text-xs font-black uppercase text-amber-400 border-r border-slate-700 pr-3">
-          <span className="animate-pulse">⚡</span>
-          <span className="hidden sm:inline">Broadcast Actions</span>
-        </div>
-
-        <button
-          onClick={() => setMusicPlaying((prev) => !prev)}
-          className={`px-3 py-1.5 rounded-full text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer shadow-sm ${
-            musicPlaying
-              ? 'bg-purple-600 text-white ring-2 ring-purple-400 shadow-purple-600/40 animate-pulse'
-              : 'bg-purple-600/20 text-purple-300 border border-purple-500/40 hover:bg-purple-600/30'
-          }`}
-          title={musicPlaying ? 'Stop Papare Music' : 'Play Papare Brass Band Music'}
-        >
-          <span>🎺</span>
-          <span>{musicPlaying ? 'Stop Papare' : 'Play Papare'}</span>
-        </button>
-
-        {adActive && (
-          <button
-            onClick={() => setAdActive(false)}
-            className="px-3 py-1.5 rounded-full bg-amber-600/20 text-amber-300 border border-amber-500/40 hover:bg-amber-600/30 text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-            title="Hide currently playing ad"
-          >
-            <span>⏹</span>
-            <span>Hide Ad</span>
-          </button>
-        )}
-
-        <button
-          onClick={() => setViewMode(viewMode === 'crease' ? 'broadcast_scorecard' : 'crease')}
-          className="px-3 py-1.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-400/40 hover:bg-emerald-500/30 text-xs font-bold uppercase transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-          title="Toggle Real Cricket 20 Scorecard (Shortcut: S)"
-        >
-          <span>🎮</span>
-          <span>{viewMode === 'crease' ? 'RC20 Scorecard' : 'Crease View'}</span>
-        </button>
-
-        <Link
-          href="/admin"
-          className="px-3 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold uppercase transition-all flex items-center gap-1.5"
-          title="Open Admin Console"
-        >
-          <span>🎛️</span>
-          <span className="hidden md:inline">Admin</span>
-        </Link>
-      </div>
 
       {/* Connection Setup Modal */}
       <ConnectionModal

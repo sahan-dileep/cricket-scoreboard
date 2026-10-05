@@ -1,13 +1,18 @@
 'use strict';
 import React from 'react';
-import { Bowler } from '@/types/cricket';
+import { Bowler, PlayerRole, PLAYER_ROLES } from '@/types/cricket';
 
 interface Props {
   bowler?: Bowler;
   playerPhotos?: Record<string, string>;
+  playerRoles?: Record<string, PlayerRole>;
 }
 
-export const BowlerPanel: React.FC<Props> = ({ bowler, playerPhotos = {} }) => {
+export const BowlerPanel: React.FC<Props> = ({
+  bowler,
+  playerPhotos = {},
+  playerRoles = {},
+}) => {
   const econ = bowler?.economy
     ? typeof bowler.economy === 'number'
       ? bowler.economy.toFixed(2)
@@ -17,6 +22,9 @@ export const BowlerPanel: React.FC<Props> = ({ bowler, playerPhotos = {} }) => {
   const photoSrc =
     (bowler?.name && playerPhotos[bowler.name]) ||
     '/assets/branding/player-avatar-default.svg';
+
+  const roleKey = bowler?.name ? playerRoles[bowler.name] : undefined;
+  const roleInfo = roleKey ? PLAYER_ROLES[roleKey] : null;
 
   return (
     <div className="bg-slate-900/85 border border-slate-700/80 rounded-2xl p-5 shadow-xl">
@@ -34,8 +42,20 @@ export const BowlerPanel: React.FC<Props> = ({ bowler, playerPhotos = {} }) => {
           />
         </div>
 
-        <div className="font-bold text-lg text-sky-400 truncate">
-          {bowler?.name || 'Bowler'}
+        {/* Name + Role Badge */}
+        <div className="flex items-center gap-2 truncate pr-2">
+          <span className="font-bold text-lg text-sky-400 truncate">
+            {bowler?.name || 'Bowler'}
+          </span>
+          {roleInfo && (
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 flex-shrink-0 shadow-sm ${roleInfo.badgeClass}`}
+              title={roleInfo.label}
+            >
+              <span>{roleInfo.icon}</span>
+              <span className="hidden xl:inline">{roleInfo.label}</span>
+            </span>
+          )}
         </div>
 
         <div className="text-right px-2">

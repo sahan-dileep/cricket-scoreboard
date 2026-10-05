@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
-import { MediaItem, AdminActionType, ScoreData, TeamData, BrandingConfig, DEFAULT_BRANDING } from '@/types/cricket';
+import { MediaItem, AdminActionType, ScoreData, TeamData, BrandingConfig, DEFAULT_BRANDING, PlayerRole, PLAYER_ROLES } from '@/types/cricket';
 
 export default function AdminPage() {
   const [androidIp, setAndroidIp] = useState<string>('');
@@ -596,6 +596,7 @@ export default function AdminPage() {
             tournamentLogo: parsed.tournamentLogo || DEFAULT_BRANDING.tournamentLogo,
             teamLogos: parsed.teamLogos || {},
             playerPhotos: parsed.playerPhotos || {},
+            playerRoles: parsed.playerRoles || {},
           };
           updateAndSaveBranding(merged);
           addLog(`Imported branding configuration from "${file.name}"`, 'success');
@@ -609,6 +610,18 @@ export default function AdminPage() {
     };
     reader.readAsText(file);
     e.target.value = '';
+  };
+
+  const handleSetPlayerRole = (playerName: string, role: PlayerRole) => {
+    const updatedRoles = {
+      ...(branding.playerRoles || {}),
+      [playerName]: role,
+    };
+    updateAndSaveBranding({
+      ...branding,
+      playerRoles: updatedRoles,
+    });
+    addLog(`Assigned ${PLAYER_ROLES[role].icon} ${PLAYER_ROLES[role].label} to ${playerName}`, 'info');
   };
 
   return (
@@ -791,14 +804,20 @@ export default function AdminPage() {
 
                   <div className="text-xs text-slate-300 flex flex-wrap gap-1.5 max-h-32 overflow-y-auto pr-1">
                     {team.players && team.players.length > 0 ? (
-                      team.players.map((pName, pIdx) => (
-                        <span
-                          key={pIdx}
-                          className="px-2 py-0.5 rounded bg-slate-700/60 text-slate-200 text-[11px]"
-                        >
-                          {pName}
-                        </span>
-                      ))
+                      team.players.map((pName, pIdx) => {
+                        const roleKey = branding.playerRoles?.[pName];
+                        const roleInfo = roleKey ? PLAYER_ROLES[roleKey] : null;
+                        return (
+                          <span
+                            key={pIdx}
+                            className="px-2 py-0.5 rounded bg-slate-700/60 text-slate-200 text-[11px] inline-flex items-center gap-1"
+                            title={roleInfo ? `${pName} (${roleInfo.label})` : pName}
+                          >
+                            {roleInfo && <span className="text-[10px]">{roleInfo.icon}</span>}
+                            <span>{pName}</span>
+                          </span>
+                        );
+                      })
                     ) : (
                       <span className="text-slate-500 italic">No players listed</span>
                     )}
@@ -1052,12 +1071,19 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* 3. Player Photos & Headshots */}
+        {/* 3. Player Roles & Photos */}
         <div>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-2 border-b border-slate-800 mb-4 gap-2">
             <div>
-              <span className="font-bold text-sm text-slate-200">👤 Player Photos & Headshots</span>
-              <p className="text-xs text-slate-400">Headshots appear on scoreboard when batsman is at crease or bowler is bowling</p>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-sm text-slate-200">👤 Player Roles & Photos</span>
+                <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-400 border border-amber-500/30 font-semibold">
+                  Select Role with Icons: 🏏 🎳 ⚡ 🧤
+                </span>
+              </div>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Assign player roles (Batting, Baller, All Rounder, Wicket Keeper) using icons, and upload player photos
+              </p>
             </div>
 
             {/* Team Picker dropdown */}
@@ -1092,56 +1118,108 @@ export default function AdminPage() {
             }
 
             return (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                 {playersList.map((playerName, pIdx) => {
                   const photoSrc =
                     branding.playerPhotos[playerName] ||
                     '/assets/branding/player-avatar-default.svg';
                   const hasCustom = Boolean(branding.playerPhotos[playerName]);
+                  const currentRole = branding.playerRoles?.[playerName];
+                  const currentRoleInfo = currentRole ? PLAYER_ROLES[currentRole] : null;
 
                   return (
                     <div
                       key={pIdx}
-                      className="p-3 rounded-xl bg-slate-800/40 border border-slate-700/60 flex items-center justify-between gap-3"
+                      className="p-3.5 rounded-xl bg-slate-800/50 border border-slate-700/70 flex flex-col justify-between gap-3 shadow-md hover:border-slate-600 transition-colors"
                     >
+                      {/* Top: Avatar, Name & Current Role Badge */}
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-full bg-slate-900 border border-slate-700 overflow-hidden shadow flex-shrink-0">
+                        <div className="w-12 h-12 rounded-full bg-slate-900 border border-slate-700 overflow-hidden shadow flex-shrink-0">
                           <img
                             src={photoSrc}
                             alt={playerName}
                             className="w-full h-full object-cover"
                           />
                         </div>
-                        <div className="truncate">
-                          <div className="font-bold text-xs text-slate-100 truncate">{playerName}</div>
-                          <div className="text-[10px] text-slate-400">
-                            {hasCustom ? 'Photo uploaded' : 'Default avatar'}
+                        <div className="truncate flex-1">
+                          <div className="font-bold text-sm text-slate-100 truncate">{playerName}</div>
+                          <div className="mt-1">
+                            {currentRoleInfo ? (
+                              <span
+                                className={`text-[10px] font-bold px-2 py-0.5 rounded-full border inline-flex items-center gap-1 shadow-sm ${currentRoleInfo.badgeClass}`}
+                              >
+                                <span>{currentRoleInfo.icon}</span>
+                                <span>{currentRoleInfo.label}</span>
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-slate-500 italic">No role selected</span>
+                            )}
                           </div>
                         </div>
                       </div>
 
-                      <div className="flex items-center gap-1.5 flex-shrink-0">
-                        <label
-                          className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold cursor-pointer transition-colors"
-                          title={`Upload photo for ${playerName}`}
-                        >
-                          Photo
-                          <input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handlePlayerPhotoUpload(playerName, e)}
-                            className="hidden"
-                          />
-                        </label>
-                        {hasCustom && (
-                          <button
-                            onClick={() => resetPlayerPhoto(playerName)}
-                            className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
-                            title="Remove custom photo"
+                      {/* Middle: Icon Selector for Roles */}
+                      <div className="bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                        <div className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1.5 flex items-center justify-between">
+                          <span>Select Role:</span>
+                          <span className="text-[9px] text-slate-500">Click icon to set</span>
+                        </div>
+                        <div className="grid grid-cols-4 gap-1.5">
+                          {(['batting', 'baller', 'all_rounder', 'wicket_keeper'] as PlayerRole[]).map(
+                            (role) => {
+                              const rInfo = PLAYER_ROLES[role];
+                              const isSelected = currentRole === role;
+                              return (
+                                <button
+                                  key={role}
+                                  type="button"
+                                  onClick={() => handleSetPlayerRole(playerName, role)}
+                                  className={`flex flex-col items-center justify-center py-1.5 px-1 rounded-lg transition-all cursor-pointer ${
+                                    isSelected
+                                      ? `${rInfo.badgeClass} ring-2 ring-amber-400 font-bold shadow-md scale-105`
+                                      : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-slate-200 border border-slate-700/60'
+                                  }`}
+                                  title={`Select ${rInfo.label}`}
+                                >
+                                  <span className="text-lg leading-tight">{rInfo.icon}</span>
+                                  <span className="text-[9px] uppercase tracking-tighter truncate w-full text-center mt-0.5 font-semibold">
+                                    {rInfo.shortLabel}
+                                  </span>
+                                </button>
+                              );
+                            }
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Bottom: Photo Upload & Remove */}
+                      <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-700/50">
+                        <span className="text-[10px] text-slate-400">
+                          {hasCustom ? 'Photo uploaded' : 'Default photo'}
+                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <label
+                            className="px-2.5 py-1 rounded bg-slate-700 hover:bg-slate-600 text-slate-200 text-xs font-semibold cursor-pointer transition-colors shadow-sm"
+                            title={`Upload photo for ${playerName}`}
                           >
-                            ✕
-                          </button>
-                        )}
+                            Photo
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => handlePlayerPhotoUpload(playerName, e)}
+                              className="hidden"
+                            />
+                          </label>
+                          {hasCustom && (
+                            <button
+                              onClick={() => resetPlayerPhoto(playerName)}
+                              className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-rose-400 text-xs font-semibold transition-colors cursor-pointer"
+                              title="Remove custom photo"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                       </div>
                     </div>
                   );

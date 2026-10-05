@@ -1,13 +1,18 @@
 'use strict';
 import React from 'react';
-import { Batsman } from '@/types/cricket';
+import { Batsman, PlayerRole, PLAYER_ROLES } from '@/types/cricket';
 
 interface Props {
   batsmen?: Batsman[];
   playerPhotos?: Record<string, string>;
+  playerRoles?: Record<string, PlayerRole>;
 }
 
-export const BatsmenPanel: React.FC<Props> = ({ batsmen = [], playerPhotos = {} }) => {
+export const BatsmenPanel: React.FC<Props> = ({
+  batsmen = [],
+  playerPhotos = {},
+  playerRoles = {},
+}) => {
   return (
     <div className="bg-slate-900/85 border border-slate-700/80 rounded-2xl p-5 shadow-xl flex flex-col justify-between">
       <div className="text-xs font-bold uppercase tracking-widest text-slate-400 border-b border-slate-800 pb-2 mb-3 flex items-center justify-between">
@@ -28,6 +33,9 @@ export const BatsmenPanel: React.FC<Props> = ({ batsmen = [], playerPhotos = {} 
             const photoSrc =
               (bat.name && playerPhotos[bat.name]) ||
               '/assets/branding/player-avatar-default.svg';
+
+            const roleKey = bat.name ? playerRoles[bat.name] : undefined;
+            const roleInfo = roleKey ? PLAYER_ROLES[roleKey] : null;
 
             return (
               <div
@@ -52,9 +60,20 @@ export const BatsmenPanel: React.FC<Props> = ({ batsmen = [], playerPhotos = {} 
                   />
                 </div>
 
-                {/* Name */}
-                <div className="font-bold text-lg text-slate-100 truncate pr-2">
-                  {bat.name || `Batsman ${idx + 1}`}
+                {/* Name + Role Badge */}
+                <div className="flex items-center gap-2 truncate pr-2">
+                  <span className="font-bold text-lg text-slate-100 truncate">
+                    {bat.name || `Batsman ${idx + 1}`}
+                  </span>
+                  {roleInfo && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 flex-shrink-0 shadow-sm ${roleInfo.badgeClass}`}
+                      title={roleInfo.label}
+                    >
+                      <span>{roleInfo.icon}</span>
+                      <span className="hidden xl:inline">{roleInfo.label}</span>
+                    </span>
+                  )}
                 </div>
 
                 {/* Runs */}

@@ -305,12 +305,14 @@ export default function ScoreboardPage() {
             <BatsmenPanel
               batsmen={scoreData.currentInnings?.batsmen}
               playerPhotos={branding.playerPhotos}
+              playerRoles={branding.playerRoles}
             />
 
             <div className="flex flex-col gap-4">
               <BowlerPanel
                 bowler={scoreData.currentInnings?.currentBowler}
                 playerPhotos={branding.playerPhotos}
+                playerRoles={branding.playerRoles}
               />
               <PartnershipPanel partnership={scoreData.currentInnings?.partnership} />
               <ChasePanel

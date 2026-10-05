@@ -625,7 +625,7 @@ export default function AdminPage() {
   };
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans">
+    <main className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans pb-28">
       {/* Top Header */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-6 border-b border-slate-800 gap-4">
         <div>
@@ -1469,47 +1469,6 @@ export default function AdminPage() {
         </div>
       </div>
 
-      {/* Quick Action Bar */}
-      <div className="my-6 p-5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
-        <h2 className="text-xs font-bold uppercase tracking-widest text-slate-400 mb-3">
-          ⚡ Quick Broadcast Actions
-        </h2>
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            onClick={() =>
-              sendCommand('PLAY_MUSIC', {
-                src: musicFiles[0]?.url || '/assets/music/papare_sample.mp3',
-                loop: loopMusic,
-              })
-            }
-            className="px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs uppercase tracking-wider transition-colors shadow-lg shadow-purple-600/20 cursor-pointer"
-          >
-            🎺 Quick Papare Loop
-          </button>
-
-          <button
-            onClick={stopMusic}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-rose-400 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer"
-          >
-            🔇 Mute Music
-          </button>
-
-          <button
-            onClick={stopAd}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-amber-400 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer"
-          >
-            ⏹ Hide Current Ad
-          </button>
-
-          <button
-            onClick={() => sendCommand('CLEAR_RESULT')}
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer"
-          >
-            ✕ Clear Result Banner
-          </button>
-        </div>
-      </div>
-
       {/* Event Audit Log */}
       <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
         <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
@@ -1542,6 +1501,97 @@ export default function AdminPage() {
               <span>{log.msg}</span>
             </div>
           ))}
+        </div>
+      </div>
+
+      {/* Docked Sticky Bottom Quick Broadcast Actions Bar */}
+      <div className="fixed bottom-0 left-0 right-0 z-40 bg-slate-900/95 backdrop-blur-md border-t border-slate-700/80 shadow-2xl px-4 md:px-8 py-3 transition-all">
+        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+          {/* Left: Title + Status Pill */}
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              <span className="text-amber-400 text-base animate-pulse">⚡</span>
+              <span className="text-xs font-black uppercase tracking-wider text-slate-200">
+                Quick Broadcast Actions
+              </span>
+            </div>
+
+            {isMusicPlaying && (
+              <span className="px-2.5 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40 text-[11px] font-bold flex items-center gap-1.5 animate-pulse">
+                <span>🎺</span>
+                <span>Papare Active</span>
+              </span>
+            )}
+
+            {activeMediaName && (
+              <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5">
+                <span>🎬</span>
+                <span className="truncate max-w-[120px]">{activeMediaName}</span>
+              </span>
+            )}
+          </div>
+
+          {/* Right: Quick Action Buttons */}
+          <div className="flex items-center flex-wrap gap-2.5">
+            <button
+              onClick={() =>
+                sendCommand('PLAY_MUSIC', {
+                  src: musicFiles[0]?.url || '/assets/music/papare_sample.mp3',
+                  loop: loopMusic,
+                })
+              }
+              className={`px-3.5 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 cursor-pointer ${
+                isMusicPlaying
+                  ? 'bg-purple-600 text-white ring-2 ring-purple-400 shadow-purple-600/40 animate-pulse'
+                  : 'bg-purple-600/90 hover:bg-purple-500 text-white shadow-purple-600/20'
+              }`}
+            >
+              <span>🎺</span>
+              <span>Quick Papare</span>
+            </button>
+
+            <button
+              onClick={stopMusic}
+              disabled={!isMusicPlaying}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors border flex items-center gap-1.5 cursor-pointer ${
+                isMusicPlaying
+                  ? 'bg-rose-950/70 hover:bg-rose-900 text-rose-300 border-rose-800'
+                  : 'bg-slate-800/60 text-slate-500 border-slate-700/50 cursor-not-allowed'
+              }`}
+            >
+              <span>🔇</span>
+              <span>Stop Music</span>
+            </button>
+
+            <button
+              onClick={stopAd}
+              disabled={!activeMediaName}
+              className={`px-3.5 py-2 rounded-xl text-xs font-bold uppercase tracking-wider transition-colors border flex items-center gap-1.5 cursor-pointer ${
+                activeMediaName
+                  ? 'bg-amber-950/70 hover:bg-amber-900 text-amber-300 border-amber-800'
+                  : 'bg-slate-800/60 text-slate-500 border-slate-700/50 cursor-not-allowed'
+              }`}
+            >
+              <span>⏹</span>
+              <span>Hide Ad</span>
+            </button>
+
+            <button
+              onClick={() => sendCommand('CLEAR_RESULT')}
+              className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs uppercase tracking-wider transition-colors border border-slate-700 cursor-pointer flex items-center gap-1.5"
+            >
+              <span>✕</span>
+              <span>Clear Result</span>
+            </button>
+
+            <Link
+              href="/"
+              className="px-3.5 py-2 rounded-xl bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border border-sky-500/40 text-xs font-bold uppercase tracking-wider transition-colors flex items-center gap-1.5 ml-1"
+            >
+              <span>📺</span>
+              <span className="hidden md:inline">TV Screen</span>
+            </Link>
+          </div>
         </div>
       </div>
 

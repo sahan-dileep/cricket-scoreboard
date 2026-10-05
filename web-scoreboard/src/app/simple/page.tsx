@@ -102,6 +102,22 @@ export default function StadiumLedScoreboard() {
   const [teams, setTeams] = useState<TeamData[]>([]);
   const [scoreFormat, setScoreFormat] = useState<'W-R' | 'R-W'>('W-R'); // Default 'W-R' e.g. 2-431
   const [hasLiveConnection, setHasLiveConnection] = useState<boolean>(false);
+  const scoreCardRef = useRef<HTMLDivElement>(null);
+  const [scoreCardHeight, setScoreCardHeight] = useState<number | null>(null);
+
+  // Sync clock card size to the exact rendered height of the score card
+  useEffect(() => {
+    if (!scoreCardRef.current) return;
+    const updateHeight = () => {
+      if (scoreCardRef.current) {
+        setScoreCardHeight(scoreCardRef.current.offsetHeight);
+      }
+    };
+    updateHeight();
+    const ro = new ResizeObserver(updateHeight);
+    ro.observe(scoreCardRef.current);
+    return () => ro.disconnect();
+  }, []);
 
   // Keyboard navigation & hotkeys
   useEffect(() => {
@@ -412,15 +428,27 @@ export default function StadiumLedScoreboard() {
 
             {/* Giant Top Score Figure Highlighted with large text size (No glow) */}
             <div className="flex items-center gap-4 sm:gap-8">
-              <div className="px-5 sm:px-8 py-1.5 sm:py-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center">
+              <div
+                ref={scoreCardRef}
+                className="px-5 sm:px-8 py-1.5 sm:py-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] flex items-center"
+              >
                 <span className="text-6xl sm:text-8xl md:text-9xl lg:text-[10.5rem] xl:text-[11.5rem] font-['Barlow_Condensed',sans-serif] font-black tracking-tight text-white leading-none">
                   {scoreFormatted}
                 </span>
               </div>
 
-              {/* Analog Stadium Watch */}
-              <div className="p-1 sm:p-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] shadow-xl flex items-center justify-center">
-                <AnalogWatch className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28" />
+              {/* Analog Stadium Watch (Matches exact height of the score card) */}
+              <div
+                style={
+                  scoreCardHeight
+                    ? { height: `${scoreCardHeight}px`, width: `${scoreCardHeight}px` }
+                    : undefined
+                }
+                className={`p-1.5 sm:p-2.5 rounded-2xl bg-[#021820] border-2 border-[#165a6b] shadow-xl flex items-center justify-center shrink-0 ${
+                  !scoreCardHeight ? 'w-20 h-20 sm:w-28 sm:h-28 md:w-36 md:h-36' : ''
+                }`}
+              >
+                <AnalogWatch className="w-full h-full" />
               </div>
             </div>
           </div>

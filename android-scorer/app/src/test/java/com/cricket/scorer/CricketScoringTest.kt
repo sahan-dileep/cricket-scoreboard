@@ -121,6 +121,58 @@ class CricketScoringTest {
     }
 
     @Test
+    fun testNoBallScoringAndRunOut() = runBlocking {
+        val tId = repository.createTournament("NoBall Cup", overs = 10, playersPerSide = 11)
+        val team1Id = repository.addTeam(tId, "Team A")
+        val team2Id = repository.addTeam(tId, "Team B")
+        val p1 = repository.addPlayer(team1Id, "Batsman 1", 1)
+        val p2 = repository.addPlayer(team1Id, "Batsman 2", 2)
+        val p3 = repository.addPlayer(team1Id, "Batsman 3", 3)
+        val b1 = repository.addPlayer(team2Id, "Bowler 1", 1)
+
+        val mId = repository.createMatch(tId, team1Id, team2Id)
+        repository.setToss(mId, team1Id, TossChoice.BAT)
+
+        // 1. No Ball with 0 runs: 1 mark auto penalty, 0 legal balls
+        repository.addBall(BallEvent(matchId = mId, innings = 1, overNumber = 0, ballNumber = 0, runs = 0, extraType = ExtraType.NO_BALL, extraRuns = 1, batsmanId = p1, bowlerId = b1, nonStrikerId = p2))
+        var inn = repository.getMatchState(mId)!!.innings1!!
+        assertEquals(1, inn.score)
+        assertEquals(0, inn.legalBalls)
+        assertEquals(1, inn.extras)
+
+        // 2. No Ball with 4 runs: 1 mark auto + 4 runs = 5 runs added (total 6), 4 credited to batsman
+        repository.addBall(BallEvent(matchId = mId, innings = 1, overNumber = 0, ballNumber = 0, runs = 4, extraType = ExtraType.NO_BALL, extraRuns = 1, batsmanId = p1, bowlerId = b1, nonStrikerId = p2))
+        inn = repository.getMatchState(mId)!!.innings1!!
+        assertEquals(6, inn.score)
+        assertEquals(0, inn.legalBalls)
+        val bat1 = inn.batsmen.find { it.playerId == p1 }!!
+        assertEquals(4, bat1.runs)
+        assertEquals(1, bat1.fours)
+
+        // 3. No Ball with 6 runs: 1 mark auto + 6 runs = 7 runs added (total 13), 6 credited to batsman
+        repository.addBall(BallEvent(matchId = mId, innings = 1, overNumber = 0, ballNumber = 0, runs = 6, extraType = ExtraType.NO_BALL, extraRuns = 1, batsmanId = p1, bowlerId = b1, nonStrikerId = p2))
+        inn = repository.getMatchState(mId)!!.innings1!!
+        assertEquals(13, inn.score)
+        assertEquals(0, inn.legalBalls)
+        val bat2 = inn.batsmen.find { it.playerId == p1 }!!
+        assertEquals(10, bat2.runs)
+        assertEquals(1, bat2.sixes)
+
+        // 4. No Ball with Run Out: 1 mark auto + 1 run completed = 2 runs (total 15), 1 wicket down
+        repository.setIncomingBatsman(mId, p3)
+        repository.addBall(BallEvent(matchId = mId, innings = 1, overNumber = 0, ballNumber = 0, runs = 1, extraType = ExtraType.NO_BALL, extraRuns = 1, isWicket = true, wicketType = WicketType.RUN_OUT, batsmanId = p1, bowlerId = b1, nonStrikerId = p2))
+        inn = repository.getMatchState(mId)!!.innings1!!
+        assertEquals(15, inn.score)
+        assertEquals(0, inn.legalBalls)
+        assertEquals(1, inn.wickets)
+
+        // Bowler should NOT be credited with a wicket for Run Out
+        val bowler = inn.bowlers.find { it.playerId == b1 }!!
+        assertEquals(0, bowler.wickets)
+        assertEquals(15, bowler.runs)
+    }
+
+    @Test
     fun testWicketAndFallOfWickets() = runBlocking {
         val tId = repository.createTournament("Wicket Cup", overs = 10, playersPerSide = 11)
         val team1Id = repository.addTeam(tId, "Team A")

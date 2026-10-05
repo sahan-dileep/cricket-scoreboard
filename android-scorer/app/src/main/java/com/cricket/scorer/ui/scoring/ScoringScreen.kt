@@ -44,6 +44,7 @@ fun ScoringScreen(
     // Dialog States
     var showWicketDialog by remember { mutableStateOf(false) }
     var showExtrasDialog by remember { mutableStateOf(false) }
+    var showNoBallDialog by remember { mutableStateOf(false) }
     var selectedExtraType by remember { mutableStateOf(ExtraType.WIDE) }
     var showBowlerDialog by remember { mutableStateOf(false) }
 
@@ -511,24 +512,55 @@ fun ScoringScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
-                        listOf(
-                            ExtraType.WIDE to "WIDE",
-                            ExtraType.NO_BALL to "NO BALL",
-                            ExtraType.BYE to "BYE",
-                            ExtraType.LEG_BYE to "LEG BYE"
-                        ).forEach { (etype, label) ->
-                            OutlinedButton(
-                                onClick = {
-                                    selectedExtraType = etype
-                                    showExtrasDialog = true
-                                },
-                                modifier = Modifier.weight(1f).height(44.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = ExtraPurple),
-                                shape = RoundedCornerShape(8.dp),
-                                contentPadding = PaddingValues(2.dp)
-                            ) {
-                                Text(label, fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
-                            }
+                        OutlinedButton(
+                            onClick = {
+                                selectedExtraType = ExtraType.WIDE
+                                showExtrasDialog = true
+                            },
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ExtraPurple),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(2.dp)
+                        ) {
+                            Text("WIDE", fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        }
+
+                        Button(
+                            onClick = {
+                                showNoBallDialog = true
+                            },
+                            modifier = Modifier.weight(1.25f).height(44.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = PitchAmber),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(2.dp)
+                        ) {
+                            Text("NO BALL", fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = DarkNavy, textAlign = TextAlign.Center)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                selectedExtraType = ExtraType.BYE
+                                showExtrasDialog = true
+                            },
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ExtraPurple),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(2.dp)
+                        ) {
+                            Text("BYE", fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                selectedExtraType = ExtraType.LEG_BYE
+                                showExtrasDialog = true
+                            },
+                            modifier = Modifier.weight(1f).height(44.dp),
+                            colors = ButtonDefaults.outlinedButtonColors(contentColor = ExtraPurple),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(2.dp)
+                        ) {
+                            Text("LEG BYE", fontSize = 11.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
                         }
                     }
 
@@ -701,7 +733,7 @@ fun ScoringScreen(
         )
     }
 
-    // ── Dialog: Extras Selection ───────────────────────────────
+    // ── Dialog: Extras Selection (Wide, Bye, Leg Bye) ──────────
     if (showExtrasDialog) {
         var runsWithExtra by remember { mutableStateOf(0) }
         AlertDialog(
@@ -711,10 +743,10 @@ fun ScoringScreen(
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
                         when (selectedExtraType) {
-                            ExtraType.WIDE -> "Wide delivers 1 penalty run + optional runs scored"
-                            ExtraType.NO_BALL -> "No Ball delivers 1 penalty run + runs off the bat"
-                            ExtraType.BYE -> "Byes are legal balls with runs scored"
+                            ExtraType.WIDE -> "Wide delivers 1 penalty run + optional runs taken"
+                            ExtraType.BYE -> "Byes are legal balls with runs scored without bat contact"
                             ExtraType.LEG_BYE -> "Leg Byes are legal balls with runs off pad"
+                            else -> "Extras"
                         },
                         color = SlateGray,
                         fontSize = 12.sp
@@ -743,12 +775,12 @@ fun ScoringScreen(
                     onClick = {
                         showExtrasDialog = false
                         val extraRuns = when (selectedExtraType) {
-                            ExtraType.WIDE, ExtraType.NO_BALL -> 1 + runsWithExtra
+                            ExtraType.WIDE -> 1 + runsWithExtra
                             ExtraType.BYE, ExtraType.LEG_BYE -> if (runsWithExtra == 0) 1 else runsWithExtra
+                            else -> 1
                         }
-                        val batRuns = if (selectedExtraType == ExtraType.NO_BALL) runsWithExtra else 0
                         recordBall(
-                            runs = batRuns,
+                            runs = 0,
                             extraType = selectedExtraType,
                             extraRuns = extraRuns
                         )
@@ -760,6 +792,314 @@ fun ScoringScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showExtrasDialog = false }) {
+                    Text("Cancel", color = SlateGray)
+                }
+            },
+            containerColor = DarkNavyLight
+        )
+    }
+
+    // ── Dialog: Dedicated No Ball Selection ───────────────────
+    if (showNoBallDialog) {
+        var isRunOutSelected by remember { mutableStateOf(false) }
+        var selectedNoBallOutBatsmanId by remember { mutableStateOf<Int?>(strikerId) }
+        var selectedNoBallNextBatsmanId by remember { mutableStateOf<Int?>(null) }
+        var completedRunsOnRunOut by remember { mutableStateOf(0) }
+
+        val currentOutBatsmanId = selectedNoBallOutBatsmanId ?: strikerId
+        val survivingBatsmanId = if (currentOutBatsmanId == strikerId) nonStrikerId else strikerId
+        val alreadyOutPlayerIds = currInnings?.batsmen?.filter { it.isOut }?.map { it.playerId }?.toSet() ?: emptySet()
+        val availableNextBatsmen = battingPlayers.filter { p ->
+            p.id != currentOutBatsmanId && p.id != survivingBatsmanId && !alreadyOutPlayerIds.contains(p.id)
+        }
+
+        AlertDialog(
+            onDismissRequest = {
+                showNoBallDialog = false
+                isRunOutSelected = false
+            },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("NO BALL", fontWeight = FontWeight.ExtraBold, color = PitchAmber, fontSize = 20.sp)
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = PitchAmber.copy(alpha = 0.2f)
+                    ) {
+                        Text(
+                            "+1 Mark Auto",
+                            color = PitchAmber,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp,
+                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
+                        )
+                    }
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "1 mark added automatically. Select additional runs scored off the bat, or Run Out:",
+                        color = Color.White.copy(alpha = 0.85f),
+                        fontSize = 13.sp
+                    )
+
+                    if (!isRunOutSelected) {
+                        Text("Runs Scored off Bat:", color = SlateGray, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+
+                        // Row 1: 0, 1, 2
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    recordBall(
+                                        runs = 0,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1
+                                    )
+                                    showNoBallDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(62.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF334155)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("0", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("+1 total", fontSize = 10.sp, color = SlateGray)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    recordBall(
+                                        runs = 1,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1
+                                    )
+                                    showNoBallDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(62.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A8A)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("1", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("+2 total", fontSize = 10.sp, color = PitchAmberLight)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    recordBall(
+                                        runs = 2,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1
+                                    )
+                                    showNoBallDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(62.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A8A)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("2", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("+3 total", fontSize = 10.sp, color = PitchAmberLight)
+                                }
+                            }
+                        }
+
+                        // Row 2: 3, 4, 6
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = {
+                                    recordBall(
+                                        runs = 3,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1
+                                    )
+                                    showNoBallDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(62.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1E3A8A)),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("3", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("+4 total", fontSize = 10.sp, color = PitchAmberLight)
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    recordBall(
+                                        runs = 4,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1
+                                    )
+                                    showNoBallDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(62.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = FourGreen),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("4", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("+5 total", fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
+                                }
+                            }
+
+                            Button(
+                                onClick = {
+                                    recordBall(
+                                        runs = 6,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1
+                                    )
+                                    showNoBallDialog = false
+                                },
+                                modifier = Modifier.weight(1f).height(62.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = SixOrange),
+                                shape = RoundedCornerShape(10.dp)
+                            ) {
+                                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                    Text("6", fontSize = 18.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                                    Text("+7 total", fontSize = 10.sp, color = Color.White.copy(alpha = 0.85f))
+                                }
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(4.dp))
+
+                        // Run Out Button
+                        Button(
+                            onClick = { isRunOutSelected = true },
+                            modifier = Modifier.fillMaxWidth().height(50.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = WicketRed),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.DirectionsRun, contentDescription = null, tint = Color.White)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("RUN OUT (Wicket on No Ball)", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = Color.White)
+                        }
+                    } else {
+                        // Run Out configuration sub-panel
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = WicketRed.copy(alpha = 0.15f)),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                Text("RUN OUT DETAILS", color = WicketRed, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+
+                                Text("Batsman Run Out:", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    FilterChip(
+                                        selected = currentOutBatsmanId == strikerId,
+                                        onClick = { selectedNoBallOutBatsmanId = strikerId },
+                                        label = { Text("Striker: ${striker?.playerName ?: "Striker"}") },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = WicketRed,
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                    FilterChip(
+                                        selected = currentOutBatsmanId == nonStrikerId,
+                                        onClick = { selectedNoBallOutBatsmanId = nonStrikerId },
+                                        label = { Text("Non-Striker: ${nonStriker?.playerName ?: "Non-Striker"}") },
+                                        colors = FilterChipDefaults.filterChipColors(
+                                            selectedContainerColor = WicketRed,
+                                            selectedLabelColor = Color.White
+                                        )
+                                    )
+                                }
+
+                                Text("Completed Runs before Run Out:", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    listOf(0, 1, 2, 3).forEach { r ->
+                                        FilterChip(
+                                            selected = completedRunsOnRunOut == r,
+                                            onClick = { completedRunsOnRunOut = r },
+                                            label = { Text("+$r (Total ${1 + r})") },
+                                            colors = FilterChipDefaults.filterChipColors(
+                                                selectedContainerColor = PitchAmber,
+                                                selectedLabelColor = DarkNavy
+                                            )
+                                        )
+                                    }
+                                }
+
+                                if (availableNextBatsmen.isNotEmpty()) {
+                                    Text("Incoming Batsman:", color = Color.White, fontWeight = FontWeight.Medium, fontSize = 12.sp)
+                                    LazyRow(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                        items(availableNextBatsmen) { p ->
+                                            val isChosen = (selectedNoBallNextBatsmanId ?: availableNextBatsmen.first().id) == p.id
+                                            FilterChip(
+                                                selected = isChosen,
+                                                onClick = { selectedNoBallNextBatsmanId = p.id },
+                                                label = { Text(p.name, fontSize = 12.sp) },
+                                                colors = FilterChipDefaults.filterChipColors(
+                                                    selectedContainerColor = CricketGreen,
+                                                    selectedLabelColor = Color.White
+                                                )
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(
+                                onClick = { isRunOutSelected = false },
+                                modifier = Modifier.weight(1f)
+                            ) {
+                                Text("Back to Runs", color = SlateGray)
+                            }
+
+                            Button(
+                                onClick = {
+                                    val nextPlayerId = selectedNoBallNextBatsmanId ?: availableNextBatsmen.firstOrNull()?.id
+                                    if (nextPlayerId != null) {
+                                        repository.setIncomingBatsman(matchId, nextPlayerId)
+                                    }
+                                    val outId = selectedNoBallOutBatsmanId ?: strikerId
+                                    recordBall(
+                                        runs = completedRunsOnRunOut,
+                                        extraType = ExtraType.NO_BALL,
+                                        extraRuns = 1,
+                                        isWicket = true,
+                                        wType = WicketType.RUN_OUT,
+                                        outBatsmanId = outId
+                                    )
+                                    showNoBallDialog = false
+                                    isRunOutSelected = false
+                                },
+                                modifier = Modifier.weight(1.4f),
+                                colors = ButtonDefaults.buttonColors(containerColor = WicketRed)
+                            ) {
+                                Text("Confirm Run Out", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {},
+            dismissButton = {
+                TextButton(onClick = {
+                    showNoBallDialog = false
+                    isRunOutSelected = false
+                }) {
                     Text("Cancel", color = SlateGray)
                 }
             },

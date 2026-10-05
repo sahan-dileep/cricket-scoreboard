@@ -356,8 +356,8 @@ class CricketRepository(
             batsmanMap[b.batsmanId] = bat.copy(
                 runs = newBatRuns,
                 balls = newBatBalls,
-                fours = bat.fours + if (b.runs == 4 && !isExtra) 1 else 0,
-                sixes = bat.sixes + if (b.runs == 6 && !isExtra) 1 else 0,
+                fours = bat.fours + if (b.runs == 4 && (b.extraType == null || b.extraType == ExtraType.NO_BALL)) 1 else 0,
+                sixes = bat.sixes + if (b.runs == 6 && (b.extraType == null || b.extraType == ExtraType.NO_BALL)) 1 else 0,
                 isOut = bat.isOut || b.isWicket,
                 onStrike = if (bat.isOut || b.isWicket) false else bat.onStrike,
                 isStriker = if (bat.isOut || b.isWicket) false else bat.isStriker,
@@ -448,12 +448,49 @@ class CricketRepository(
                         }?.id ?: -1
                     }
 
+                    val wasStrikerOut = (dismissedId == currentStrikerId)
+                    val runningRuns = when (b.extraType) {
+                        ExtraType.WIDE -> 0
+                        else -> b.runs
+                    }
+                    val runsCrossed = (runningRuns % 2 != 0)
+
                     if (overEnded) {
-                        currentStrikerId = survivingId
-                        currentNonStrikerId = incomingBatsmanId
+                        if (wasStrikerOut) {
+                            if (runsCrossed) {
+                                currentStrikerId = incomingBatsmanId
+                                currentNonStrikerId = survivingId
+                            } else {
+                                currentStrikerId = survivingId
+                                currentNonStrikerId = incomingBatsmanId
+                            }
+                        } else {
+                            if (runsCrossed) {
+                                currentStrikerId = survivingId
+                                currentNonStrikerId = incomingBatsmanId
+                            } else {
+                                currentStrikerId = incomingBatsmanId
+                                currentNonStrikerId = survivingId
+                            }
+                        }
                     } else {
-                        currentStrikerId = incomingBatsmanId
-                        currentNonStrikerId = survivingId
+                        if (wasStrikerOut) {
+                            if (runsCrossed) {
+                                currentStrikerId = survivingId
+                                currentNonStrikerId = incomingBatsmanId
+                            } else {
+                                currentStrikerId = incomingBatsmanId
+                                currentNonStrikerId = survivingId
+                            }
+                        } else {
+                            if (runsCrossed) {
+                                currentStrikerId = incomingBatsmanId
+                                currentNonStrikerId = survivingId
+                            } else {
+                                currentStrikerId = survivingId
+                                currentNonStrikerId = incomingBatsmanId
+                            }
+                        }
                     }
                 }
             } else {
@@ -597,6 +634,8 @@ class CricketRepository(
                     val isExtra = b.extraType != null
                     val isWicket = b.isWicket
                     val label = when {
+                        b.extraType == ExtraType.NO_BALL && isWicket -> if (b.runs > 0) "NB+${b.runs}+W" else "NB+W"
+                        b.extraType == ExtraType.WIDE && isWicket -> "WD+W"
                         isWicket -> "W"
                         b.extraType == ExtraType.WIDE -> if (b.extraRuns > 1) "WD+${b.extraRuns - 1}" else "WD"
                         b.extraType == ExtraType.NO_BALL -> if (b.runs > 0) "NB+${b.runs}" else "NB"

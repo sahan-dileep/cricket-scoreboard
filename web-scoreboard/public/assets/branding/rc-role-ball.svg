@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="24" height="24" fill="none">
+  <!-- Cricket Seam Ball -->
+  <circle cx="12" cy="12" r="8" fill="#ffffff"/>
+  <!-- Curved central seam stitches -->
+  <path d="M7 7.5C10 9.5 14 14.5 17 16.5" stroke="#475569" stroke-width="1.2" stroke-linecap="round"/>
+  <path d="M8 6.5C11 8.5 15 13.5 18 15.5" stroke="#94a3b8" stroke-width="0.8" stroke-dasharray="1.2 1.2"/>
+</svg>

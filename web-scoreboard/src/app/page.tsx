@@ -14,6 +14,7 @@ import { SplitAdPanel } from '@/components/SplitAdPanel';
 import { MusicBar } from '@/components/MusicBar';
 import { ConnectionModal } from '@/components/ConnectionModal';
 import { ResultBanner } from '@/components/ResultBanner';
+import { RealCricketScorecard } from '@/components/RealCricketScorecard';
 
 const DEFAULT_SCORE: ScoreData = {
   match: {
@@ -98,6 +99,7 @@ export default function ScoreboardPage() {
   const [scoreFlash, setScoreFlash] = useState<boolean>(false);
   const [resultDismissed, setResultDismissed] = useState<boolean>(false);
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
+  const [viewMode, setViewMode] = useState<'crease' | 'broadcast_scorecard'>('crease');
 
   // Ad State (Split screen)
   const [adActive, setAdActive] = useState<boolean>(false);
@@ -109,6 +111,17 @@ export default function ScoreboardPage() {
   const [musicSrc, setMusicSrc] = useState<string | null>(null);
 
   const prevScoreRef = useRef<number>(DEFAULT_SCORE.currentInnings.score);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 's' || e.key === 'S') {
+        if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+        setViewMode((prev) => (prev === 'crease' ? 'broadcast_scorecard' : 'crease'));
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -250,8 +263,24 @@ export default function ScoreboardPage() {
   );
   const hasResult = Boolean(scoreData.match?.result);
 
+  if (viewMode === 'broadcast_scorecard') {
+    return (
+      <RealCricketScorecard
+        scoreData={scoreData}
+        branding={branding}
+        onClose={() => setViewMode('crease')}
+      />
+    );
+  }
+
   return (
-    <main className="min-h-screen w-screen bg-slate-950 text-slate-100 flex flex-col p-4 md:p-6 overflow-x-hidden font-sans select-none">
+    <main
+      className="min-h-screen w-screen bg-cover bg-center text-slate-100 flex flex-col p-4 md:p-6 overflow-x-hidden font-sans select-none"
+      style={{
+        backgroundImage: "url('/assets/branding/stadium-night-backdrop.svg')",
+        backgroundColor: '#040d1a',
+      }}
+    >
       {/* Top Bar with Connection and Navigation */}
       <div className="flex items-center justify-between pb-3">
         <div className="flex items-center gap-3">
@@ -262,16 +291,25 @@ export default function ScoreboardPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setViewMode('broadcast_scorecard')}
+            className="text-xs px-3.5 py-1.5 rounded-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black tracking-wider uppercase border border-emerald-300 transition-all flex items-center gap-1.5 shadow-lg shadow-emerald-500/30 cursor-pointer hover:scale-105"
+            title="Switch to Real Cricket Full Scorecard (Shortcut: S)"
+          >
+            <span>🎮</span>
+            <span>RC20 Scorecard</span>
+          </button>
+
           <Link
             href="/admin"
-            className="text-xs px-3.5 py-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 transition-colors"
+            className="text-xs px-3.5 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-200 font-bold border border-slate-700 transition-colors backdrop-blur-sm"
           >
             🎛️ Admin Panel
           </Link>
 
           <button
             onClick={() => setIsModalOpen(true)}
-            className={`text-xs px-3.5 py-1.5 rounded-full font-bold border flex items-center gap-2 transition-all cursor-pointer ${
+            className={`text-xs px-3.5 py-1.5 rounded-full font-bold border flex items-center gap-2 transition-all cursor-pointer backdrop-blur-sm ${
               connStatus === 'connected'
                 ? 'bg-emerald-500/10 border-emerald-500/40 text-emerald-400'
                 : 'bg-rose-500/10 border-rose-500/40 text-rose-400'

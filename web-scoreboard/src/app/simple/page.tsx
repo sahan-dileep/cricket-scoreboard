@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { ScoreData, Batsman, Bowler, BrandingConfig, DEFAULT_BRANDING, TeamData, PlayerRole, PLAYER_ROLES } from '@/types/cricket';
 import { ConnectionModal } from '@/components/ConnectionModal';
+import AnalogWatch from '@/components/AnalogWatch';
 
 // Authentic default data matching the Australian Stadium LED Scoreboard photo
 const PHOTO_DEMO_SCORE: ScoreData = {
@@ -100,25 +101,7 @@ export default function StadiumLedScoreboard() {
   const [branding, setBranding] = useState<BrandingConfig>(DEFAULT_BRANDING);
   const [teams, setTeams] = useState<TeamData[]>([]);
   const [scoreFormat, setScoreFormat] = useState<'W-R' | 'R-W'>('W-R'); // Default 'W-R' e.g. 2-431
-  const [currentTime, setCurrentTime] = useState<string>('');
   const [hasLiveConnection, setHasLiveConnection] = useState<boolean>(false);
-
-  // Real-time clock update (e.g. "5:57 PM")
-  useEffect(() => {
-    const updateClock = () => {
-      const now = new Date();
-      let hours = now.getHours();
-      const minutes = now.getMinutes();
-      const ampm = hours >= 12 ? 'PM' : 'AM';
-      hours = hours % 12;
-      hours = hours ? hours : 12; // 12-hour format
-      const minutesStr = minutes < 10 ? `0${minutes}` : `${minutes}`;
-      setCurrentTime(`${hours}:${minutesStr} ${ampm}`);
-    };
-    updateClock();
-    const interval = setInterval(updateClock, 1000);
-    return () => clearInterval(interval);
-  }, []);
 
   // Keyboard navigation & hotkeys
   useEffect(() => {
@@ -435,11 +418,9 @@ export default function StadiumLedScoreboard() {
                 </span>
               </div>
 
-              {/* Digital Stadium Clock */}
-              <div className="px-3 sm:px-4 py-1.5 sm:py-2 rounded bg-[#03181f] border border-[#0d4554] shadow-inner">
-                <span className="text-base sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-wider text-[#38bdf8]">
-                  {currentTime || '5:57 PM'}
-                </span>
+              {/* Analog Stadium Watch */}
+              <div className="p-1 sm:p-2 rounded-2xl bg-[#021820] border-2 border-[#165a6b] shadow-xl flex items-center justify-center">
+                <AnalogWatch className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 lg:w-28 lg:h-28" />
               </div>
             </div>
           </div>

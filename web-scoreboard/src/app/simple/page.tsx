@@ -466,17 +466,21 @@ export default function StadiumLedScoreboard() {
                           : 'text-white/90 hover:bg-white/5'
                       }`}
                     >
-                      {/* Left: Player Skill Icon & Name */}
+                      {/* Left: Player Skill SVG Icon & Name */}
                       <div className="flex items-center gap-2 sm:gap-2.5 w-48 sm:w-60 md:w-72 truncate">
                         <span
-                          className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg text-sm sm:text-base md:text-lg shrink-0 ${
+                          className={`inline-flex items-center justify-center w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8 rounded-lg p-1 shrink-0 ${
                             isHighlighted
-                              ? 'bg-[#032026] text-[#d4fc04]'
+                              ? 'bg-[#032026] border border-[#093e4c]'
                               : 'bg-[#021b22] border border-[#0e4857]'
                           }`}
                           title={`Skill: ${roleInfo.label}`}
                         >
-                          {roleInfo.icon}
+                          <img
+                            src={roleInfo.rcIconUrl}
+                            alt={roleInfo.label}
+                            className="w-full h-full object-contain"
+                          />
                         </span>
                         <span
                           className={`text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] uppercase tracking-tight truncate ${
@@ -550,14 +554,21 @@ export default function StadiumLedScoreboard() {
                   </div>
                 </div>
 
-                {/* Active Batsmen Box (5 cols) with Skill Icons */}
+                {/* Active Batsmen Box (5 cols) with Skill SVG Icons */}
                 <div className="col-span-5 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857] flex flex-col justify-center gap-1">
                   {/* Batsman 1 (Striker) */}
                   <div className="flex items-center justify-between text-base sm:text-xl md:text-2xl font-['Barlow_Condensed',sans-serif] font-black">
-                    <span className="text-white flex items-center gap-1.5 truncate">
+                    <span className="text-white flex items-center gap-2 truncate">
                       <span className="text-[#d4fc04] font-bold">/</span>
-                      <span className="text-sm sm:text-base" title={PLAYER_ROLES[getPlayerRole(striker?.name || '')].label}>
-                        {PLAYER_ROLES[getPlayerRole(striker?.name || '')].icon}
+                      <span
+                        className="w-5 h-5 sm:w-6 sm:h-6 p-0.5 rounded bg-[#021922] border border-[#0d4654] inline-flex items-center justify-center shrink-0"
+                        title={PLAYER_ROLES[getPlayerRole(striker?.name || '')].label}
+                      >
+                        <img
+                          src={PLAYER_ROLES[getPlayerRole(striker?.name || '')].rcIconUrl}
+                          alt={PLAYER_ROLES[getPlayerRole(striker?.name || '')].label}
+                          className="w-full h-full object-contain"
+                        />
                       </span>
                       <span className="uppercase">{striker?.name || 'GREEN'}</span>
                     </span>
@@ -571,9 +582,16 @@ export default function StadiumLedScoreboard() {
 
                   {/* Batsman 2 (Non-Striker) */}
                   <div className="flex items-center justify-between text-base sm:text-xl md:text-2xl font-['Barlow_Condensed',sans-serif] font-bold">
-                    <span className="text-slate-300 flex items-center gap-1.5 truncate">
-                      <span className="text-sm sm:text-base" title={PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].label}>
-                        {PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].icon}
+                    <span className="text-slate-300 flex items-center gap-2 truncate">
+                      <span
+                        className="w-5 h-5 sm:w-6 sm:h-6 p-0.5 rounded bg-[#021922] border border-[#0d4654] inline-flex items-center justify-center shrink-0"
+                        title={PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].label}
+                      >
+                        <img
+                          src={PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].rcIconUrl}
+                          alt={PLAYER_ROLES[getPlayerRole(nonStriker?.name || '')].label}
+                          className="w-full h-full object-contain"
+                        />
                       </span>
                       <span className="uppercase">{nonStriker?.name || 'CAREY'}</span>
                     </span>
@@ -586,15 +604,22 @@ export default function StadiumLedScoreboard() {
                   </div>
                 </div>
 
-                {/* Current Bowler Box (4 cols) with Skill Icon */}
+                {/* Current Bowler Box (4 cols) with Skill SVG Icon */}
                 <div className="col-span-4 bg-[#03181f]/80 p-2 sm:p-3 rounded-lg border border-[#0e4857] flex flex-col justify-center">
                   <div className="text-xs sm:text-sm font-['Barlow_Condensed',sans-serif] font-bold uppercase tracking-wider text-slate-400">
                     BOWLER
                   </div>
                   <div className="flex items-baseline justify-between">
-                    <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white truncate flex items-center gap-1.5">
-                      <span className="text-sm sm:text-base" title={PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].label}>
-                        {PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].icon}
+                    <span className="text-lg sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white truncate flex items-center gap-2">
+                      <span
+                        className="w-5 h-5 sm:w-6 sm:h-6 p-0.5 rounded bg-[#021922] border border-[#0d4654] inline-flex items-center justify-center shrink-0"
+                        title={PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].label}
+                      >
+                        <img
+                          src={PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].rcIconUrl}
+                          alt={PLAYER_ROLES[getPlayerRole(currentBowler?.name || 'MULDER')].label}
+                          className="w-full h-full object-contain"
+                        />
                       </span>
                       <span>{currentBowler?.name || 'MULDER'}</span>
                     </span>

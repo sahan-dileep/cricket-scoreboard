@@ -165,6 +165,19 @@ data class InningsSummary(
     val partnership: Partnership = Partnership()
 )
 
+object AdminCommandTypes {
+    const val SHOW_TOSS = "SHOW_TOSS"
+    const val SHOW_TEAMS = "SHOW_TEAMS"
+    const val SHOW_BOWLER = "SHOW_BOWLER"
+    const val CLEAR_OVERLAY = "CLEAR_OVERLAY"
+    const val PLAY_VIDEO_AD = "PLAY_VIDEO_AD"
+    const val PLAY_IMAGE_AD = "PLAY_IMAGE_AD"
+    const val STOP_AD = "STOP_AD"
+    const val PLAY_MUSIC = "PLAY_MUSIC"
+    const val STOP_MUSIC = "STOP_MUSIC"
+    const val CLEAR_RESULT = "CLEAR_RESULT"
+}
+
 data class AdminCommand(
     val id: String = UUID.randomUUID().toString(),
     val action: String,
@@ -174,6 +187,12 @@ data class AdminCommand(
     val loop: Boolean = false,
     val payload: Map<String, Any?>? = null,
     val timestamp: Long = System.currentTimeMillis()
+)
+
+data class TossDto(
+    val winner: String,
+    val choice: String? = null,
+    val decision: String? = null
 )
 
 data class MatchDto(
@@ -186,7 +205,11 @@ data class MatchDto(
     val status: String,
     val result: String? = null,
     val innings1: Innings1Dto? = null,
-    val innings2: Innings1Dto? = null
+    val innings2: Innings1Dto? = null,
+    val toss: TossDto? = null,
+    val tossWinner: String? = null,
+    val tossChoice: String? = null,
+    val tossDecision: String? = null
 )
 
 data class Innings1Dto(

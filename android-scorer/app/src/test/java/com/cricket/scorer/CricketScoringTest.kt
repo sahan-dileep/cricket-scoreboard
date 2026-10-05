@@ -3,6 +3,7 @@ package com.cricket.scorer
 import com.cricket.scorer.data.db.*
 import com.cricket.scorer.data.model.*
 import com.cricket.scorer.data.repository.CricketRepository
+import com.cricket.scorer.server.CricketHttpServer
 import com.google.gson.Gson
 import com.google.gson.GsonBuilder
 import com.google.gson.JsonObject
@@ -351,6 +352,160 @@ class CricketScoringTest {
         assertTrue(tourObj.has("tournamentId"))
         assertTrue(tourObj.has("name"))
         assertTrue(tourObj.has("standings"))
+    }
+
+    @Test
+    fun testAdminCommandSynchronizationAndConstants() = runBlocking {
+        // 1. Verify all AdminCommandTypes constants
+        assertEquals("SHOW_TOSS", AdminCommandTypes.SHOW_TOSS)
+        assertEquals("SHOW_TEAMS", AdminCommandTypes.SHOW_TEAMS)
+        assertEquals("SHOW_BOWLER", AdminCommandTypes.SHOW_BOWLER)
+        assertEquals("CLEAR_OVERLAY", AdminCommandTypes.CLEAR_OVERLAY)
+        assertEquals("PLAY_VIDEO_AD", AdminCommandTypes.PLAY_VIDEO_AD)
+        assertEquals("PLAY_IMAGE_AD", AdminCommandTypes.PLAY_IMAGE_AD)
+        assertEquals("STOP_AD", AdminCommandTypes.STOP_AD)
+        assertEquals("PLAY_MUSIC", AdminCommandTypes.PLAY_MUSIC)
+        assertEquals("STOP_MUSIC", AdminCommandTypes.STOP_MUSIC)
+        assertEquals("CLEAR_RESULT", AdminCommandTypes.CLEAR_RESULT)
+
+        val tId = repository.createTournament("Sync Cup", overs = 10, playersPerSide = 11)
+        val t1 = repository.addTeam(tId, "Team Alpha")
+        val t2 = repository.addTeam(tId, "Team Beta")
+        val mId = repository.createMatch(tId, t1, t2)
+        repository.setToss(mId, t1, TossChoice.BAT)
+
+        // 2. Initially currentAdminCommand is null
+        assertNull(repository.currentAdminCommand)
+        var resp = repository.buildScoreResponse(mId)
+        assertNotNull(resp)
+        assertNull(resp!!.adminCommand)
+
+        // 3. Set command via setAdminCommand and verify default reflection in buildScoreResponse
+        val tossCmd = AdminCommand(action = AdminCommandTypes.SHOW_TOSS)
+        repository.setAdminCommand(tossCmd)
+        assertEquals(tossCmd, repository.currentAdminCommand)
+
+        resp = repository.buildScoreResponse(mId)
+        assertNotNull(resp)
+        assertNotNull(resp!!.adminCommand)
+        assertEquals(AdminCommandTypes.SHOW_TOSS, resp.adminCommand!!.action)
+
+        // 4. Overriding adminCommand parameter in buildScoreResponse takes precedence
+        val bowlerCmd = AdminCommand(action = AdminCommandTypes.SHOW_BOWLER)
+        resp = repository.buildScoreResponse(mId, bowlerCmd)
+        assertNotNull(resp)
+        assertEquals(AdminCommandTypes.SHOW_BOWLER, resp!!.adminCommand!!.action)
+
+        // 5. CLEAR_OVERLAY dispatches and reflects properly
+        val clearCmd = AdminCommand(action = AdminCommandTypes.CLEAR_OVERLAY)
+        repository.setAdminCommand(clearCmd)
+        assertEquals(clearCmd, repository.currentAdminCommand)
+        resp = repository.buildScoreResponse(mId)
+        assertEquals(AdminCommandTypes.CLEAR_OVERLAY, resp!!.adminCommand!!.action)
+    }
+
+    @Test
+    fun testTossSerializationInMatchDto() = runBlocking {
+        val tId = repository.createTournament("Toss Cup", overs = 10, playersPerSide = 11)
+        val team1Id = repository.addTeam(tId, "Royal Strikers")
+        val team2Id = repository.addTeam(tId, "Super Kings")
+        val p1 = repository.addPlayer(team1Id, "RS 1", 1)
+        val p2 = repository.addPlayer(team1Id, "RS 2", 2)
+        val b1 = repository.addPlayer(team2Id, "SK 1", 1)
+
+        val mId = repository.createMatch(tId, team1Id, team2Id)
+        repository.setToss(mId, team1Id, TossChoice.BAT)
+        repository.addBall(BallEvent(matchId = mId, innings = 1, overNumber = 0, ballNumber = 0, runs = 1, batsmanId = p1, bowlerId = b1, nonStrikerId = p2))
+
+        val scoreResponse = repository.buildScoreResponse(mId)
+        assertNotNull(scoreResponse)
+        val matchDto = scoreResponse!!.match
+
+        // Verify DTO fields (both flat and nested TossDto)
+        assertEquals("Royal Strikers", matchDto.tossWinner)
+        assertEquals("BAT", matchDto.tossChoice)
+        assertEquals("Royal Strikers elected to bat first", matchDto.tossDecision)
+        assertNotNull(matchDto.toss)
+        assertEquals("Royal Strikers", matchDto.toss?.winner)
+        assertEquals("BAT", matchDto.toss?.choice)
+        assertEquals("Royal Strikers elected to bat first", matchDto.toss?.decision)
+
+        // Verify JSON serialization format
+        val json = gson.toJson(scoreResponse)
+        val jsonObject = JsonParser.parseString(json).asJsonObject
+        val matchJson = jsonObject.getAsJsonObject("match")
+        assertTrue(matchJson.has("tossWinner"))
+        assertTrue(matchJson.has("tossChoice"))
+        assertTrue(matchJson.has("tossDecision"))
+        assertEquals("Royal Strikers", matchJson.get("tossWinner").asString)
+        assertEquals("BAT", matchJson.get("tossChoice").asString)
+        assertEquals("Royal Strikers elected to bat first", matchJson.get("tossDecision").asString)
+
+        assertTrue(matchJson.has("toss"))
+        assertFalse(matchJson.get("toss").isJsonNull)
+        val tossJson = matchJson.getAsJsonObject("toss")
+        assertEquals("Royal Strikers", tossJson.get("winner").asString)
+        assertEquals("BAT", tossJson.get("choice").asString)
+        assertEquals("Royal Strikers elected to bat first", tossJson.get("decision").asString)
+
+        // Test BOWL decision on a second match (bowling team wins toss and elects to bowl)
+        val mId2 = repository.createMatch(tId, team1Id, team2Id)
+        repository.setToss(mId2, team2Id, TossChoice.BOWL)
+        val resp2 = repository.buildScoreResponse(mId2)
+        assertNotNull(resp2)
+        assertEquals("Super Kings", resp2!!.match.tossWinner)
+        assertEquals("BOWL", resp2.match.tossChoice)
+        assertEquals("Super Kings elected to bowl first", resp2.match.tossDecision)
+        assertNotNull(resp2.match.toss)
+        assertEquals("Super Kings", resp2.match.toss?.winner)
+        assertEquals("BOWL", resp2.match.toss?.choice)
+        assertEquals("Super Kings elected to bowl first", resp2.match.toss?.decision)
+
+        val json2 = gson.toJson(resp2)
+        val jsonObject2 = JsonParser.parseString(json2).asJsonObject
+        val matchJson2 = jsonObject2.getAsJsonObject("match")
+        assertTrue(matchJson2.has("toss"))
+        val tossJson2 = matchJson2.getAsJsonObject("toss")
+        assertEquals("Super Kings", tossJson2.get("winner").asString)
+        assertEquals("BOWL", tossJson2.get("choice").asString)
+        assertEquals("Super Kings elected to bowl first", tossJson2.get("decision").asString)
+        assertEquals("Super Kings", matchJson2.get("tossWinner").asString)
+        assertEquals("BOWL", matchJson2.get("tossChoice").asString)
+        assertEquals("Super Kings elected to bowl first", matchJson2.get("tossDecision").asString)
+
+        // Test unrecorded toss on a third match
+        val mId3 = repository.createMatch(tId, team1Id, team2Id)
+        val resp3 = repository.buildScoreResponse(mId3)
+        assertNotNull(resp3)
+        assertNull(resp3!!.match.toss)
+        assertNull(resp3.match.tossWinner)
+        assertNull(resp3.match.tossChoice)
+        assertNull(resp3.match.tossDecision)
+    }
+
+    @Test
+    fun testHttpServerDelegatesAdminCommandToRepository() {
+        val httpServer = CricketHttpServer(port = 18081, repository = repository)
+
+        // 1. Initial state
+        assertNull(httpServer.currentAdminCommand)
+        assertNull(repository.currentAdminCommand)
+
+        // 2. Setting command on repository directly updates httpServer.currentAdminCommand
+        val teamsCmd = AdminCommand(action = AdminCommandTypes.SHOW_TEAMS)
+        repository.setAdminCommand(teamsCmd)
+        assertEquals(AdminCommandTypes.SHOW_TEAMS, httpServer.currentAdminCommand?.action)
+
+        // 3. Setting command on httpServer delegates directly to repository.currentAdminCommand
+        val bowlerCmd = AdminCommand(action = AdminCommandTypes.SHOW_BOWLER)
+        httpServer.currentAdminCommand = bowlerCmd
+        assertEquals(AdminCommandTypes.SHOW_BOWLER, repository.currentAdminCommand?.action)
+
+        // 4. Clear command sync
+        val clearCmd = AdminCommand(action = AdminCommandTypes.CLEAR_OVERLAY)
+        httpServer.currentAdminCommand = clearCmd
+        assertEquals(AdminCommandTypes.CLEAR_OVERLAY, repository.currentAdminCommand?.action)
+        assertEquals(AdminCommandTypes.CLEAR_OVERLAY, httpServer.currentAdminCommand?.action)
     }
 }
 

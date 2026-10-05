@@ -88,6 +88,10 @@ export default function AdminPage() {
   const [isMusicPlaying, setIsMusicPlaying] = useState<boolean>(false);
   const [activeMediaName, setActiveMediaName] = useState<string | null>(null);
 
+  // Active Stadium Overlay State
+  const [activeOverlay, setActiveOverlay] = useState<AdminActionType | null>(null);
+  const broadcastChannelRef = useRef<BroadcastChannel | null>(null);
+
   // Event & Command Audit Trail Logs
   const [logs, setLogs] = useState<{ id: string; time: string; msg: string; type: 'info' | 'success' | 'error' | 'cmd' }[]>([]);
 
@@ -344,6 +348,9 @@ export default function AdminPage() {
           if (isMounted) {
             setConnStatus('connected');
             setPreviewScore(data);
+            if (data.adminCommand?.action) {
+              handleIncomingCommand(data.adminCommand.action);
+            }
           }
         } else {
           if (isMounted) setConnStatus('disconnected');
@@ -362,14 +369,79 @@ export default function AdminPage() {
     };
   }, [androidIp]);
 
-  // Command dispatcher to Android HTTP server
-  const sendCommand = async (action: AdminActionType, extra: Record<string, unknown> = {}) => {
-    if (!androidIp) {
-      addLog('Cannot send command: No Android IP set', 'error');
-      return;
+  const handleIncomingCommand = (action: AdminActionType) => {
+    if (['SHOW_TOSS', 'SHOW_TEAMS', 'SHOW_BOWLER'].includes(action)) {
+      setActiveOverlay(action);
+    } else if (action === 'CLEAR_OVERLAY') {
+      setActiveOverlay(null);
+    }
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        const bc = new BroadcastChannel('cricket_broadcast');
+        broadcastChannelRef.current = bc;
+        bc.onmessage = (event) => {
+          const data = event.data;
+          if (data && data.action) {
+            handleIncomingCommand(data.action as AdminActionType);
+          }
+        };
+      } catch (err) {
+        console.warn('BroadcastChannel not supported or error:', err);
+      }
     }
 
-    const payload = { action, ...extra };
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'cricket_admin_command' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && parsed.action) {
+            handleIncomingCommand(parsed.action as AdminActionType);
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.close();
+      }
+      window.removeEventListener('storage', handleStorage);
+    };
+  }, []);
+
+  // Command dispatcher to Android HTTP server & local storage / BroadcastChannel
+  const sendCommand = async (action: AdminActionType, extra: Record<string, unknown> = {}) => {
+    const timestamp = Date.now();
+    const payload = { action, timestamp, ...extra };
+
+    // 1. Sync immediately via localStorage and BroadcastChannel
+    try {
+      localStorage.setItem('cricket_admin_command', JSON.stringify(payload));
+      window.dispatchEvent(new Event('storage'));
+    } catch (e) {
+      console.error('Failed to write admin command to localStorage', e);
+    }
+
+    try {
+      if (broadcastChannelRef.current) {
+        broadcastChannelRef.current.postMessage(payload);
+      } else if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('cricket_broadcast');
+        bc.postMessage(payload);
+        bc.close();
+      }
+    } catch (e) {
+      console.error('Failed to post to BroadcastChannel', e);
+    }
+
+    if (!androidIp) {
+      addLog(`Command [${action}] broadcast locally (No Android IP set)`, 'info');
+      return;
+    }
 
     try {
       addLog(`Sending command: ${action}`, 'cmd');
@@ -387,6 +459,23 @@ export default function AdminPage() {
     } catch (err: unknown) {
       const errMsg = err instanceof Error ? err.message : String(err);
       addLog(`Command delivery failed: ${errMsg}`, 'error');
+    }
+  };
+
+  const triggerOverlay = (cmd: AdminActionType) => {
+    if (cmd === 'CLEAR_OVERLAY') {
+      setActiveOverlay(null);
+      sendCommand('CLEAR_OVERLAY');
+      addLog('Cleared stadium broadcast overlay', 'cmd');
+    } else {
+      setActiveOverlay(cmd);
+      sendCommand(cmd);
+      const names: Record<string, string> = {
+        SHOW_TOSS: 'Toss Decision',
+        SHOW_TEAMS: 'Team Presentation',
+        SHOW_BOWLER: 'Bowler Spotlight',
+      };
+      addLog(`Triggered stadium broadcast: ${names[cmd] || cmd}`, 'cmd');
     }
   };
 
@@ -953,6 +1042,165 @@ export default function AdminPage() {
               Waiting for live match data from Scorer. Ensure Android Scorer IP is connected above.
             </div>
           )}
+        </div>
+
+        {/* Stadium LED Broadcast Overlays Control Center */}
+        <div className="p-5 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-slate-800 mb-4 gap-2">
+            <div className="flex items-center gap-2">
+              <span className="text-lg">🏟️</span>
+              <h2 className="text-base font-black uppercase tracking-wider text-amber-400">
+                Stadium LED Broadcast Overlays
+              </h2>
+              <span className="text-xs text-slate-400 hidden md:inline">— Stadium Screen (/simple) Remote</span>
+            </div>
+            <div className="flex items-center gap-2">
+              {activeOverlay ? (
+                <span className="px-3 py-1 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 animate-pulse">
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                  Active: {activeOverlay}
+                </span>
+              ) : (
+                <span className="px-3 py-1 rounded-full bg-slate-800 text-slate-500 border border-slate-700 text-xs font-medium">
+                  Standby (Live Score View)
+                </span>
+              )}
+              <Link
+                href="/simple"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1 rounded-lg bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border border-emerald-500/30 text-xs font-bold uppercase transition-colors flex items-center gap-1"
+              >
+                <span>Open Screen ↗</span>
+              </Link>
+            </div>
+          </div>
+
+          <p className="text-xs text-slate-400 mb-4">
+            One-click stadium broadcast cards. Dispatched instantly via remote HTTP sync and local storage / BroadcastChannel.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* 1. Toss Info */}
+            <div className={`p-4 rounded-xl border transition-all ${
+              activeOverlay === 'SHOW_TOSS'
+                ? 'bg-amber-950/40 border-amber-500/80 ring-2 ring-amber-500/30'
+                : 'bg-slate-800/50 border-slate-700/60 hover:border-slate-600'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">🪙</span>
+                {activeOverlay === 'SHOW_TOSS' && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-400 border border-amber-500/40 animate-pulse">
+                    ON SCREEN
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-bold text-slate-200 mb-1">Toss Decision</h3>
+              <p className="text-xs text-slate-400 mb-3">
+                Broadcasts toss winner, decision (bat/bowl), and match title.
+              </p>
+              <button
+                onClick={() => triggerOverlay('SHOW_TOSS')}
+                className={`w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeOverlay === 'SHOW_TOSS'
+                    ? 'bg-amber-500 text-slate-950 shadow-md shadow-amber-500/30'
+                    : 'bg-amber-600/30 hover:bg-amber-600/40 text-amber-300 border border-amber-500/40'
+                }`}
+              >
+                <span>🪙</span>
+                <span>{activeOverlay === 'SHOW_TOSS' ? 'Broadcast Active' : 'Show Toss Info'}</span>
+              </button>
+            </div>
+
+            {/* 2. Team Intro */}
+            <div className={`p-4 rounded-xl border transition-all ${
+              activeOverlay === 'SHOW_TEAMS'
+                ? 'bg-sky-950/40 border-sky-500/80 ring-2 ring-sky-500/30'
+                : 'bg-slate-800/50 border-slate-700/60 hover:border-slate-600'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">👥</span>
+                {activeOverlay === 'SHOW_TEAMS' && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/40 animate-pulse">
+                    ON SCREEN
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-bold text-slate-200 mb-1">Team Presentation</h3>
+              <p className="text-xs text-slate-400 mb-3">
+                Showcases both lineups side-by-side with full-res crests and captains.
+              </p>
+              <button
+                onClick={() => triggerOverlay('SHOW_TEAMS')}
+                className={`w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeOverlay === 'SHOW_TEAMS'
+                    ? 'bg-sky-500 text-slate-950 shadow-md shadow-sky-500/30'
+                    : 'bg-sky-600/30 hover:bg-sky-600/40 text-sky-300 border border-sky-500/40'
+                }`}
+              >
+                <span>👥</span>
+                <span>{activeOverlay === 'SHOW_TEAMS' ? 'Broadcast Active' : 'Show Team Intro'}</span>
+              </button>
+            </div>
+
+            {/* 3. Bowler Info */}
+            <div className={`p-4 rounded-xl border transition-all ${
+              activeOverlay === 'SHOW_BOWLER'
+                ? 'bg-emerald-950/40 border-emerald-500/80 ring-2 ring-emerald-500/30'
+                : 'bg-slate-800/50 border-slate-700/60 hover:border-slate-600'
+            }`}>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-2xl">🎳</span>
+                {activeOverlay === 'SHOW_BOWLER' && (
+                  <span className="text-[10px] font-black uppercase px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/40 animate-pulse">
+                    ON SCREEN
+                  </span>
+                )}
+              </div>
+              <h3 className="text-sm font-bold text-slate-200 mb-1">Bowler Spotlight</h3>
+              <p className="text-xs text-slate-400 mb-3">
+                Spotlights current bowler figures: overs, maidens, wickets & economy.
+              </p>
+              <button
+                onClick={() => triggerOverlay('SHOW_BOWLER')}
+                className={`w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeOverlay === 'SHOW_BOWLER'
+                    ? 'bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/30'
+                    : 'bg-emerald-600/30 hover:bg-emerald-600/40 text-emerald-300 border border-emerald-500/40'
+                }`}
+              >
+                <span>🎳</span>
+                <span>{activeOverlay === 'SHOW_BOWLER' ? 'Broadcast Active' : 'Show Bowler Info'}</span>
+              </button>
+            </div>
+
+            {/* 4. Clear Overlay */}
+            <div className="p-4 rounded-xl border bg-slate-800/50 border-slate-700/60 flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-2xl">✕</span>
+                  <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                    DISMISS
+                  </span>
+                </div>
+                <h3 className="text-sm font-bold text-slate-200 mb-1">Clear Overlay</h3>
+                <p className="text-xs text-slate-400 mb-3">
+                  Dismiss active broadcast overlay and return stadium display to scoreboard.
+                </p>
+              </div>
+              <button
+                onClick={() => triggerOverlay('CLEAR_OVERLAY')}
+                className={`w-full py-2 px-3 rounded-lg font-bold text-xs uppercase tracking-wider transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
+                  activeOverlay
+                    ? 'bg-rose-600 hover:bg-rose-500 text-white shadow-md shadow-rose-600/30 animate-pulse'
+                    : 'bg-slate-700 hover:bg-slate-600 text-slate-300'
+                }`}
+              >
+                <span>✕</span>
+                <span>Clear Overlay</span>
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Event & Command Audit Trail Log */}
@@ -1962,6 +2210,21 @@ export default function AdminPage() {
               </span>
             )}
 
+            {activeOverlay && (
+              <span className="px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 text-[11px] font-bold flex items-center gap-1.5 animate-pulse">
+                <span>🏟️</span>
+                <span>
+                  {activeOverlay === 'SHOW_TOSS'
+                    ? 'Toss Active'
+                    : activeOverlay === 'SHOW_TEAMS'
+                    ? 'Teams Active'
+                    : activeOverlay === 'SHOW_BOWLER'
+                    ? 'Bowler Active'
+                    : activeOverlay}
+                </span>
+              </span>
+            )}
+
             {activeMediaName && (
               <span className="px-2.5 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40 text-[11px] font-bold flex items-center gap-1.5">
                 <span>🎬</span>
@@ -1972,6 +2235,61 @@ export default function AdminPage() {
 
           {/* Right: Quick Action Buttons */}
           <div className="flex items-center flex-wrap gap-2.5">
+            {/* Stadium Broadcast Overlays Quick Actions */}
+            <button
+              onClick={() => triggerOverlay('SHOW_TOSS')}
+              className={`px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer ${
+                activeOverlay === 'SHOW_TOSS'
+                  ? 'bg-amber-500 text-slate-950 border-amber-300 ring-2 ring-amber-400 shadow-amber-500/30'
+                  : 'bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border-amber-500/40'
+              }`}
+              title="Broadcast Toss Info to Stadium Screen"
+            >
+              <span>🪙</span>
+              <span>Toss Info</span>
+            </button>
+
+            <button
+              onClick={() => triggerOverlay('SHOW_TEAMS')}
+              className={`px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer ${
+                activeOverlay === 'SHOW_TEAMS'
+                  ? 'bg-sky-500 text-slate-950 border-sky-300 ring-2 ring-sky-400 shadow-sky-500/30'
+                  : 'bg-sky-600/20 hover:bg-sky-600/30 text-sky-300 border-sky-500/40'
+              }`}
+              title="Broadcast Team Intro to Stadium Screen"
+            >
+              <span>👥</span>
+              <span>Team Intro</span>
+            </button>
+
+            <button
+              onClick={() => triggerOverlay('SHOW_BOWLER')}
+              className={`px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer ${
+                activeOverlay === 'SHOW_BOWLER'
+                  ? 'bg-emerald-500 text-slate-950 border-emerald-300 ring-2 ring-emerald-400 shadow-emerald-500/30'
+                  : 'bg-emerald-600/20 hover:bg-emerald-600/30 text-emerald-300 border-emerald-500/40'
+              }`}
+              title="Broadcast Bowler Spotlight to Stadium Screen"
+            >
+              <span>🎳</span>
+              <span>Bowler Info</span>
+            </button>
+
+            <button
+              onClick={() => triggerOverlay('CLEAR_OVERLAY')}
+              className={`px-3 py-2 rounded-xl font-bold text-xs uppercase tracking-wider transition-all border flex items-center gap-1.5 cursor-pointer ${
+                activeOverlay
+                  ? 'bg-rose-950/80 hover:bg-rose-900 text-rose-300 border-rose-800'
+                  : 'bg-slate-800/80 hover:bg-slate-700 text-slate-400 border-slate-700'
+              }`}
+              title="Clear Active Overlay on Stadium Screen"
+            >
+              <span>✕</span>
+              <span>Clear Overlay</span>
+            </button>
+
+            <div className="h-6 w-px bg-slate-700/80 mx-1 hidden sm:block" />
+
             <button
               onClick={() =>
                 sendCommand('PLAY_MUSIC', {

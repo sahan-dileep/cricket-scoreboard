@@ -1,9 +1,12 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { ScoreData, Batsman, Bowler, BrandingConfig, DEFAULT_BRANDING, TeamData, PlayerRole, PLAYER_ROLES } from '@/types/cricket';
 import { ConnectionModal } from '@/components/ConnectionModal';
 import AnalogWatch from '@/components/AnalogWatch';
+import TossOverlay from '@/components/TossOverlay';
+import TeamsPresentationOverlay from '@/components/TeamsPresentationOverlay';
+import BowlerSpotlightOverlay from '@/components/BowlerSpotlightOverlay';
 
 // Authentic default data matching the Australian Stadium LED Scoreboard photo
 const PHOTO_DEMO_SCORE: ScoreData = {
@@ -102,6 +105,8 @@ export default function StadiumLedScoreboard() {
   const [teams, setTeams] = useState<TeamData[]>([]);
   const [scoreFormat, setScoreFormat] = useState<'W-R' | 'R-W'>('W-R'); // Default 'W-R' e.g. 2-431
   const [hasLiveConnection, setHasLiveConnection] = useState<boolean>(false);
+  const [activeOverlay, setActiveOverlay] = useState<'toss' | 'teams' | 'bowler' | null>(null);
+  const lastHandledCommandKey = useRef<string | null>(null);
   const scoreCardRef = useRef<HTMLDivElement>(null);
   const [scoreCardHeight, setScoreCardHeight] = useState<number | null>(null);
 
@@ -119,10 +124,48 @@ export default function StadiumLedScoreboard() {
     return () => ro.disconnect();
   }, []);
 
+  const handleIncomingCommand = (action: string, cmdId?: string, timestamp?: number) => {
+    const commandKey = `${cmdId || ''}_${action}_${timestamp || ''}`;
+    if (commandKey && commandKey === lastHandledCommandKey.current) {
+      return;
+    }
+    lastHandledCommandKey.current = commandKey;
+
+    if (action === 'SHOW_TOSS') {
+      setActiveOverlay('toss');
+    } else if (action === 'SHOW_TEAMS') {
+      setActiveOverlay('teams');
+    } else if (action === 'SHOW_BOWLER') {
+      setActiveOverlay('bowler');
+    } else if (action === 'CLEAR_OVERLAY') {
+      setActiveOverlay(null);
+    }
+  };
+
+  const handleDismissOverlay = useCallback(() => {
+    setActiveOverlay(null);
+    try {
+      const payload = { action: 'CLEAR_OVERLAY', timestamp: Date.now() };
+      localStorage.setItem('cricket_admin_command', JSON.stringify(payload));
+      window.dispatchEvent(new Event('storage'));
+      if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+        const bc = new BroadcastChannel('cricket_broadcast');
+        bc.postMessage(payload);
+        bc.close();
+      }
+    } catch {}
+  }, []);
+
   // Keyboard navigation & hotkeys
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (activeOverlay !== null && (e.key === 'Escape' || e.key === 'x' || e.key === 'X')) {
+        e.preventDefault();
+        e.stopPropagation();
+        handleDismissOverlay();
+        return;
+      }
       if (e.key === 'c' || e.key === 'C') {
         setIsModalOpen(true);
       } else if (e.key === 't' || e.key === 'T') {
@@ -141,6 +184,49 @@ export default function StadiumLedScoreboard() {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeOverlay]);
+
+  // Dual-channel sync: BroadcastChannel and window storage events
+  useEffect(() => {
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== 'undefined' && 'BroadcastChannel' in window) {
+      try {
+        bc = new BroadcastChannel('cricket_broadcast');
+        bc.onmessage = (event) => {
+          const data = event.data;
+          if (data && (data.action || data.type)) {
+            handleIncomingCommand(
+              (data.action || data.type) as string,
+              data.id,
+              data.timestamp
+            );
+          }
+        };
+      } catch (err) {
+        console.warn('BroadcastChannel error:', err);
+      }
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === 'cricket_admin_command' && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (parsed && (parsed.action || parsed.type)) {
+            handleIncomingCommand(
+              (parsed.action || parsed.type) as string,
+              parsed.id,
+              parsed.timestamp
+            );
+          }
+        } catch {}
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+
+    return () => {
+      if (bc) bc.close();
+      window.removeEventListener('storage', handleStorage);
+    };
   }, []);
 
   // Load IP and branding from localStorage
@@ -193,6 +279,13 @@ export default function StadiumLedScoreboard() {
           setConnStatus('connected');
           setHasLiveConnection(true);
           setScoreData(data);
+          if (data.adminCommand) {
+            const cmd = data.adminCommand;
+            const act = cmd.action || cmd.type;
+            if (act) {
+              handleIncomingCommand(act, cmd.id, cmd.timestamp);
+            }
+          }
         }
       } catch {
         if (isSubscribed) {
@@ -381,11 +474,88 @@ export default function StadiumLedScoreboard() {
   // Current Bowler
   const currentBowler = currentInnings?.currentBowler;
 
+  // Team Data for overlays
+  const team1Data = useMemo(() => {
+    return teams.find(
+      (t) => t.name.toLowerCase().trim() === match.team1.toLowerCase().trim()
+    );
+  }, [teams, match.team1]);
+
+  const team2Data = useMemo(() => {
+    return teams.find(
+      (t) => t.name.toLowerCase().trim() === match.team2.toLowerCase().trim()
+    );
+  }, [teams, match.team2]);
+
+  const bowlerTeamName = useMemo(() => {
+    if (currentInnings?.bowlingTeam) return currentInnings.bowlingTeam;
+    return currentInnings?.battingTeam?.toLowerCase() === match.team1.toLowerCase()
+      ? match.team2
+      : match.team1;
+  }, [currentInnings?.bowlingTeam, currentInnings?.battingTeam, match.team1, match.team2]);
+
+  const bowlerTeamLogo = useMemo(() => {
+    if (!bowlerTeamName) return undefined;
+    if (branding.teamLogos[bowlerTeamName]) return branding.teamLogos[bowlerTeamName];
+    const matchKey = Object.keys(branding.teamLogos).find(
+      (k) => k.toLowerCase().trim() === bowlerTeamName.toLowerCase().trim()
+    );
+    return matchKey ? branding.teamLogos[matchKey] : undefined;
+  }, [branding.teamLogos, bowlerTeamName]);
+
   return (
     <div className="h-screen w-screen bg-[#020b0d] text-slate-100 flex items-center justify-center p-2 sm:p-4 overflow-hidden select-none font-sans">
       {/* Stadium Steel Outer Gantry / LED Bezel Frame */}
       <div className="relative w-full max-w-[1920px] aspect-[16/9] max-h-screen bg-[#03151a] border-[8px] sm:border-[12px] md:border-[16px] border-[#0a232b] rounded-md shadow-[0_0_80px_rgba(0,0,0,0.95)] flex flex-col overflow-hidden">
         
+        {/* Active Broadcast Overlays */}
+        {activeOverlay === 'toss' && (
+          <TossOverlay
+            matchTitle={match.matchTitle}
+            tournamentName={branding.tournamentName}
+            team1Name={match.team1}
+            team2Name={match.team2}
+            team1Logo={branding.teamLogos[match.team1]}
+            team2Logo={branding.teamLogos[match.team2]}
+            tossWinner={match.toss?.winner || match.tossWinner || currentInnings?.battingTeam || match.team1}
+            tossDecision={match.toss?.decision || match.tossDecision}
+            tossChoice={match.toss?.choice || match.tossChoice}
+            durationSeconds={10}
+            onDismiss={handleDismissOverlay}
+          />
+        )}
+
+        {activeOverlay === 'teams' && (
+          <TeamsPresentationOverlay
+            matchTitle={match.matchTitle}
+            tournamentName={branding.tournamentName}
+            tournamentLogo={branding.tournamentLogo}
+            team1Name={match.team1}
+            team2Name={match.team2}
+            team1Logo={branding.teamLogos[match.team1]}
+            team2Logo={branding.teamLogos[match.team2]}
+            team1Captain={team1Data?.captain}
+            team2Captain={team2Data?.captain}
+            team1Roster={team1Data?.players || (match.team1.toLowerCase() === 'australia' ? DEFAULT_LINEUP_AUS : [])}
+            team2Roster={team2Data?.players || []}
+            playerRoles={branding.playerRoles}
+            durationSeconds={10}
+            onDismiss={handleDismissOverlay}
+          />
+        )}
+
+        {activeOverlay === 'bowler' && (
+          <BowlerSpotlightOverlay
+            bowler={currentBowler || { name: 'BOWLER', overs: 0, maidens: 0, runs: 0, wickets: 0, economy: '0.00' }}
+            teamName={bowlerTeamName}
+            teamLogo={bowlerTeamLogo}
+            playerPhoto={currentBowler ? branding.playerPhotos[currentBowler.name] : undefined}
+            playerRole={currentBowler ? getPlayerRole(currentBowler.name) : 'baller'}
+            durationSeconds={10}
+            onDismiss={handleDismissOverlay}
+          />
+        )}
+
         {/* LED Matrix Screen Surface with angled shard background */}
         <div
           className="relative flex-1 flex flex-col p-4 sm:p-6 md:p-8"

@@ -19,6 +19,13 @@ class CricketRepository(
     private val nameCache = mutableMapOf<Int, String>()
     private val nextBatsmanMap = mutableMapOf<Int, Int>()
 
+    @Volatile
+    var currentAdminCommand: AdminCommand? = null
+
+    fun setAdminCommand(command: AdminCommand?) {
+        currentAdminCommand = command
+    }
+
     fun setIncomingBatsman(matchId: Int, playerId: Int) {
         nextBatsmanMap[matchId] = playerId
     }
@@ -673,6 +680,7 @@ class CricketRepository(
 
     // ── Match State & DTO Construction ──────────────────────────
     suspend fun getMatchState(matchId: Int, adminCommand: AdminCommand? = null): MatchState? {
+        val effectiveCommand = adminCommand ?: currentAdminCommand
         val match = matchDao.getById(matchId) ?: return null
         val tournament = tournamentDao.getById(match.tournamentId) ?: return null
         val team1 = teamDao.getById(match.team1Id) ?: return null
@@ -746,12 +754,13 @@ class CricketRepository(
             innings1 = innings1,
             innings2 = innings2,
             currentInnings = currentInnings,
-            adminCommand = adminCommand
+            adminCommand = effectiveCommand
         )
     }
 
     suspend fun buildScoreResponse(matchId: Int, adminCommand: AdminCommand? = null): ScoreResponse? {
-        val state = getMatchState(matchId, adminCommand) ?: return null
+        val effectiveCommand = adminCommand ?: currentAdminCommand
+        val state = getMatchState(matchId, effectiveCommand) ?: return null
         val match = state.match
         val tournament = tournamentDao.getById(match.tournamentId) ?: return null
 
@@ -759,6 +768,13 @@ class CricketRepository(
         val batSecondId = if (batFirstId == match.team1Id) match.team2Id else match.team1Id
         val team1Name = getTeamName(batFirstId)
         val team2Name = getTeamName(batSecondId)
+
+        val tossWinnerName = match.tossWinnerId?.let { getTeamName(it) }
+        val tossChoiceStr = match.tossChoice?.name
+        val tossDecisionStr = if (tossWinnerName != null && match.tossChoice != null) {
+            val choiceWord = if (match.tossChoice == TossChoice.BAT) "bat" else "bowl"
+            "$tossWinnerName elected to $choiceWord first"
+        } else null
 
         val currentInnings = state.currentInnings ?: InningsSummary(
             innings = if (match.status == MatchStatus.INNINGS_2) 2 else 1,
@@ -784,7 +800,11 @@ class CricketRepository(
             status = match.status.name,
             result = match.result,
             innings1 = innings1Dto,
-            innings2 = innings2Dto
+            innings2 = innings2Dto,
+            toss = if (tossWinnerName != null) TossDto(winner = tossWinnerName, choice = tossChoiceStr, decision = tossDecisionStr) else null,
+            tossWinner = tossWinnerName,
+            tossChoice = tossChoiceStr,
+            tossDecision = tossDecisionStr
         )
 
         val chaseDto = if (match.status == MatchStatus.INNINGS_2 || (match.status == MatchStatus.COMPLETED && state.innings2 != null)) {
@@ -807,7 +827,7 @@ class CricketRepository(
             partnership = currentInnings.partnership,
             recentBalls = currentInnings.recentBalls,
             chase = chaseDto,
-            adminCommand = adminCommand
+            adminCommand = effectiveCommand
         )
     }
 

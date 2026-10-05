@@ -54,6 +54,15 @@ export interface MatchInfo {
     title: string;
     detail: string;
   } | string | null;
+  toss?: {
+    winner: string;
+    choice?: string;
+    decision?: string;
+  } | null;
+  tossWinner?: string;
+  tossChoice?: string;
+  tossDecision?: string;
+  matchTitle?: string;
   innings1?: {
     score: number;
     wickets: number;
@@ -95,7 +104,11 @@ export type AdminActionType =
   | 'STOP_AD'
   | 'PLAY_MUSIC'
   | 'STOP_MUSIC'
-  | 'CLEAR_RESULT';
+  | 'CLEAR_RESULT'
+  | 'SHOW_TOSS'
+  | 'SHOW_TEAMS'
+  | 'SHOW_BOWLER'
+  | 'CLEAR_OVERLAY';
 
 export interface AdminCommand {
   id?: string;
@@ -125,6 +138,8 @@ export interface TeamData {
   name: string;
   tournamentId?: number;
   players: string[];
+  captain?: string;
+  logoUrl?: string;
 }
 
 export type PlayerRole = 'all_rounder' | 'batting' | 'baller' | 'wicket_keeper';

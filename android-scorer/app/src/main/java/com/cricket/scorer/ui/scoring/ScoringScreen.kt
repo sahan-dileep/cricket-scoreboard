@@ -1,5 +1,6 @@
 package com.cricket.scorer.ui.scoring
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyRow
@@ -56,6 +57,41 @@ fun ScoringScreen(
 
     // Current Bowler Selection
     var currentBowlerId by remember { mutableStateOf<Int?>(null) }
+
+    // Active Broadcast Overlay Command State
+    var activeCommand by remember {
+        mutableStateOf(repository.currentAdminCommand?.action)
+    }
+
+    val onBroadcastCommandSelected: (String) -> Unit = { action ->
+        activeCommand = action
+        val command = AdminCommand(
+            action = action,
+            type = action,
+            command = action
+        )
+        repository.setAdminCommand(command)
+
+        coroutineScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            try {
+                val url = java.net.URL("http://127.0.0.1:8080/api/admin/command")
+                val conn = url.openConnection() as java.net.HttpURLConnection
+                conn.requestMethod = "POST"
+                conn.setRequestProperty("Content-Type", "application/json")
+                conn.doOutput = true
+                conn.connectTimeout = 1500
+                conn.readTimeout = 1500
+                val payload = """{"action":"$action","command":"$action"}"""
+                conn.outputStream.use { os ->
+                    os.write(payload.toByteArray(Charsets.UTF_8))
+                }
+                conn.responseCode
+                conn.disconnect()
+            } catch (_: Exception) {
+                // In-memory sync via repository is already immediate
+            }
+        }
+    }
 
     // Refresh Match State
     fun refreshState() {
@@ -179,6 +215,12 @@ fun ScoringScreen(
                     containerColor = DarkNavyLight,
                     titleContentColor = Color.White
                 )
+            )
+        },
+        bottomBar = {
+            QuickBroadcastBottomBar(
+                activeCommand = activeCommand,
+                onCommandClick = onBroadcastCommandSelected
             )
         },
         containerColor = DarkNavy
@@ -1143,3 +1185,204 @@ fun ScoringScreen(
         )
     }
 }
+
+/**
+ * Sticky quick action bottom bar docked inside ScoringScreen Scaffold.
+ * Provides 4 immediate remote broadcast overlays:
+ * - Toss (SHOW_TOSS)
+ * - Teams (SHOW_TEAMS)
+ * - Bowler (SHOW_BOWLER)
+ * - Clear (CLEAR_OVERLAY)
+ * Synchronized with CricketRepository and local HTTP server.
+ */
+@Composable
+fun QuickBroadcastBottomBar(
+    activeCommand: String?,
+    onCommandClick: (String) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        color = DarkNavyLight,
+        tonalElevation = 8.dp,
+        shadowElevation = 8.dp,
+        shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .navigationBarsPadding()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            // Header with live overlay status indicator
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.Sensors,
+                        contentDescription = "Broadcast",
+                        tint = PitchAmber,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "BROADCAST OVERLAYS",
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = SlateGray,
+                        letterSpacing = 0.5.sp
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = when (activeCommand) {
+                        AdminCommandTypes.SHOW_TOSS -> PitchAmber.copy(alpha = 0.18f)
+                        AdminCommandTypes.SHOW_TEAMS -> Color(0xFF2563EB).copy(alpha = 0.18f)
+                        AdminCommandTypes.SHOW_BOWLER -> FourGreen.copy(alpha = 0.18f)
+                        AdminCommandTypes.CLEAR_OVERLAY -> SlateGray.copy(alpha = 0.18f)
+                        else -> DarkNavy
+                    }
+                ) {
+                    Text(
+                        text = when (activeCommand) {
+                            AdminCommandTypes.SHOW_TOSS -> "● Live: Toss Call"
+                            AdminCommandTypes.SHOW_TEAMS -> "● Live: Teams Intro"
+                            AdminCommandTypes.SHOW_BOWLER -> "● Live: Bowler Spotlight"
+                            AdminCommandTypes.CLEAR_OVERLAY -> "○ Cleared"
+                            null -> "○ Standby"
+                            else -> "● $activeCommand"
+                        },
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = when (activeCommand) {
+                            AdminCommandTypes.SHOW_TOSS -> PitchAmberLight
+                            AdminCommandTypes.SHOW_TEAMS -> Color(0xFF93C5FD)
+                            AdminCommandTypes.SHOW_BOWLER -> FourGreen
+                            else -> SlateGray
+                        },
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp)
+                    )
+                }
+            }
+
+            // 4 Action Buttons Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // 1. Toss
+                BroadcastActionButton(
+                    label = "Toss",
+                    command = AdminCommandTypes.SHOW_TOSS,
+                    isActive = activeCommand == AdminCommandTypes.SHOW_TOSS,
+                    icon = Icons.Default.MonetizationOn,
+                    activeColor = PitchAmber,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCommandClick(AdminCommandTypes.SHOW_TOSS) }
+                )
+
+                // 2. Teams
+                BroadcastActionButton(
+                    label = "Teams",
+                    command = AdminCommandTypes.SHOW_TEAMS,
+                    isActive = activeCommand == AdminCommandTypes.SHOW_TEAMS,
+                    icon = Icons.Default.Groups,
+                    activeColor = Color(0xFF3B82F6),
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCommandClick(AdminCommandTypes.SHOW_TEAMS) }
+                )
+
+                // 3. Bowler
+                BroadcastActionButton(
+                    label = "Bowler",
+                    command = AdminCommandTypes.SHOW_BOWLER,
+                    isActive = activeCommand == AdminCommandTypes.SHOW_BOWLER,
+                    icon = Icons.Default.SportsBaseball,
+                    activeColor = FourGreen,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCommandClick(AdminCommandTypes.SHOW_BOWLER) }
+                )
+
+                // 4. Clear
+                BroadcastActionButton(
+                    label = "Clear",
+                    command = AdminCommandTypes.CLEAR_OVERLAY,
+                    isActive = activeCommand == AdminCommandTypes.CLEAR_OVERLAY,
+                    icon = Icons.Default.Close,
+                    activeColor = CricketRed,
+                    isDestructive = true,
+                    modifier = Modifier.weight(1f),
+                    onClick = { onCommandClick(AdminCommandTypes.CLEAR_OVERLAY) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BroadcastActionButton(
+    label: String,
+    command: String,
+    isActive: Boolean,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    activeColor: Color,
+    modifier: Modifier = Modifier,
+    isDestructive: Boolean = false,
+    onClick: () -> Unit
+) {
+    val containerColor = if (isActive) {
+        activeColor
+    } else if (isDestructive) {
+        DarkNavy.copy(alpha = 0.6f)
+    } else {
+        DarkNavy
+    }
+
+    val contentColor = if (isActive) {
+        if (activeColor == PitchAmber) Color.Black else Color.White
+    } else if (isDestructive) {
+        CricketRed.copy(alpha = 0.9f)
+    } else {
+        Color.White
+    }
+
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(40.dp),
+        contentPadding = PaddingValues(horizontal = 4.dp, vertical = 2.dp),
+        shape = RoundedCornerShape(8.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = contentColor
+        ),
+        border = if (!isActive) BorderStroke(
+            1.dp,
+            if (isDestructive) CricketRed.copy(alpha = 0.3f) else SlateGray.copy(alpha = 0.25f)
+        ) else null
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = label,
+                modifier = Modifier.size(15.dp)
+            )
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                fontWeight = if (isActive) FontWeight.Bold else FontWeight.Medium,
+                maxLines = 1
+            )
+        }
+    }
+}
+

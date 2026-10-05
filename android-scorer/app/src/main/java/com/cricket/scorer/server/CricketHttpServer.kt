@@ -24,8 +24,11 @@ class CricketHttpServer(
 
     private val gson: Gson = GsonBuilder().setPrettyPrinting().create()
 
-    @Volatile
-    var currentAdminCommand: AdminCommand? = null
+    var currentAdminCommand: AdminCommand?
+        get() = repository.currentAdminCommand
+        set(value) {
+            repository.setAdminCommand(value)
+        }
 
     override fun serve(session: IHTTPSession): Response {
         val method = session.method

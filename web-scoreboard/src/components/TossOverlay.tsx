@@ -1,0 +1,227 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Image from 'next/image';
+
+export interface TossOverlayProps {
+  matchTitle?: string;
+  tournamentName?: string;
+  team1Name: string;
+  team2Name: string;
+  team1Logo?: string;
+  team2Logo?: string;
+  tossWinner: string;
+  tossDecision?: string; // e.g. 'ELECTED TO BAT' or 'ELECTED TO BOWL'
+  tossChoice?: string; // 'BAT' or 'BOWL'
+  durationSeconds?: number;
+  onDismiss: () => void;
+}
+
+export function TossOverlay({
+  matchTitle,
+  tournamentName,
+  team1Name,
+  team2Name,
+  team1Logo,
+  team2Logo,
+  tossWinner,
+  tossDecision,
+  tossChoice,
+  durationSeconds = 10,
+  onDismiss,
+}: TossOverlayProps) {
+  const [timeLeft, setTimeLeft] = useState<number>(durationSeconds);
+
+  // Countdown timer
+  useEffect(() => {
+    setTimeLeft(durationSeconds);
+    const interval = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          onDismiss();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [durationSeconds, onDismiss]);
+
+  // Normalize decision text
+  const decisionText =
+    tossDecision ||
+    (tossChoice
+      ? `ELECTED TO ${tossChoice.toUpperCase()}`
+      : 'ELECTED TO BAT');
+
+  const resolvedTitle =
+    matchTitle || tournamentName || `${team1Name} VS ${team2Name}`;
+
+  const defaultLogo1 = team1Logo || '/assets/branding/tech-titans-logo.svg';
+  const defaultLogo2 = team2Logo || '/assets/branding/sales-strikers-logo.svg';
+
+  const progressPercent = Math.max(0, Math.min(100, (timeLeft / durationSeconds) * 100));
+
+  return (
+    <div
+      role="dialog"
+      aria-label="Toss Decision Overlay"
+      className="absolute inset-0 z-50 flex flex-col justify-between bg-[#020e13]/95 backdrop-blur-md p-4 sm:p-6 md:p-8 text-slate-100 select-none animate-fadeIn overflow-hidden"
+      style={{
+        background:
+          'radial-gradient(circle at 50% 20%, rgba(9, 57, 69, 0.8) 0%, rgba(2, 14, 19, 0.98) 75%)',
+      }}
+    >
+      {/* LED Matrix subtle mesh overlay */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-25"
+        style={{
+          backgroundImage:
+            'radial-gradient(rgba(255,255,255,0.2) 1px, transparent 1px)',
+          backgroundSize: '4px 4px',
+        }}
+      />
+
+      {/* Top Header Bar */}
+      <div className="relative z-10 flex items-center justify-between pb-3 sm:pb-4 border-b-2 border-[#09414f]">
+        <div className="flex items-center gap-3">
+          <span className="text-2xl sm:text-3xl">🪙</span>
+          <div>
+            <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#d4fc04] drop-shadow-[0_0_8px_rgba(212,252,4,0.4)]">
+              STADIUM BROADCAST • OFFICIAL TOSS
+            </span>
+            <h2 className="text-xl sm:text-2xl md:text-3xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white tracking-wide leading-tight">
+              {resolvedTitle}
+            </h2>
+          </div>
+        </div>
+
+        {/* Countdown badge & Manual Dismiss Button */}
+        <div className="flex items-center gap-3">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1 rounded-lg bg-[#032026] border border-[#0e4856] text-xs font-mono text-[#d4fc04]">
+            <span className="w-2 h-2 rounded-full bg-[#d4fc04] animate-ping" />
+            <span>DISMISSING IN {timeLeft}S</span>
+          </div>
+
+          <button
+            onClick={onDismiss}
+            aria-label="Dismiss Overlay"
+            className="px-3.5 py-1.5 sm:px-4 sm:py-2 rounded-xl bg-[#092e38] hover:bg-[#0f4352] text-slate-200 hover:text-white border border-[#165a6b] font-['Barlow_Condensed',sans-serif] font-bold text-xs sm:text-sm uppercase tracking-wider transition-all cursor-pointer flex items-center gap-1.5 shadow-lg active:scale-95"
+          >
+            <span>✕</span>
+            <span>Dismiss</span>
+            <span className="text-slate-400 font-mono text-[10px] hidden md:inline">[Esc]</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Main Center Presentation */}
+      <div className="relative z-10 flex-1 flex flex-col items-center justify-center my-4 sm:my-6 gap-6 sm:gap-8">
+        
+        {/* Teams Matchup & Crests */}
+        <div className="w-full max-w-4xl flex items-center justify-around px-4">
+          {/* Team 1 */}
+          <div className="flex-1 flex flex-col items-center text-center">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-2xl p-3 sm:p-4 bg-[#031c24] border-2 border-[#0e4856] shadow-[0_0_35px_rgba(0,0,0,0.6)] flex items-center justify-center relative">
+              <Image
+                src={defaultLogo1}
+                alt={team1Name}
+                width={128}
+                height={128}
+                unoptimized
+                className="w-full h-full object-contain drop-shadow-md"
+              />
+              {tossWinner.toLowerCase() === team1Name.toLowerCase() && (
+                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-[#d4fc04] text-[#032026] flex items-center justify-center font-black text-sm shadow-[0_0_12px_rgba(212,252,4,0.6)] animate-bounce">
+                  🪙
+                </div>
+              )}
+            </div>
+            <h3 className="mt-3 sm:mt-4 text-2xl sm:text-4xl md:text-5xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white tracking-tight">
+              {team1Name}
+            </h3>
+          </div>
+
+          {/* VS Divider */}
+          <div className="px-4 flex flex-col items-center">
+            <span className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black text-[#d4fc04] drop-shadow-[0_0_20px_rgba(212,252,4,0.5)]">
+              VS
+            </span>
+            <span className="text-[10px] sm:text-xs font-black uppercase tracking-widest text-slate-400">
+              MATCHUP
+            </span>
+          </div>
+
+          {/* Team 2 */}
+          <div className="flex-1 flex flex-col items-center text-center">
+            <div className="w-24 h-24 sm:w-32 sm:h-32 md:w-40 md:h-40 rounded-2xl p-3 sm:p-4 bg-[#031c24] border-2 border-[#0e4856] shadow-[0_0_35px_rgba(0,0,0,0.6)] flex items-center justify-center relative">
+              <Image
+                src={defaultLogo2}
+                alt={team2Name}
+                width={128}
+                height={128}
+                unoptimized
+                className="w-full h-full object-contain drop-shadow-md"
+              />
+              {tossWinner.toLowerCase() === team2Name.toLowerCase() && (
+                <div className="absolute -top-2 -right-2 w-8 h-8 rounded-full bg-[#d4fc04] text-[#032026] flex items-center justify-center font-black text-sm shadow-[0_0_12px_rgba(212,252,4,0.6)] animate-bounce">
+                  🪙
+                </div>
+              )}
+            </div>
+            <h3 className="mt-3 sm:mt-4 text-2xl sm:text-4xl md:text-5xl font-['Barlow_Condensed',sans-serif] font-black uppercase text-white tracking-tight">
+              {team2Name}
+            </h3>
+          </div>
+        </div>
+
+        {/* Toss Winner Callout Card */}
+        <div className="w-full max-w-2xl bg-[#031d25] border-2 border-[#165a6b] rounded-2xl p-4 sm:p-6 shadow-[0_0_40px_rgba(0,0,0,0.8)] flex flex-col items-center text-center">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xl sm:text-2xl animate-spin" style={{ animationDuration: '3s' }}>
+              🪙
+            </span>
+            <span className="text-xs sm:text-sm font-black uppercase tracking-widest text-[#d4fc04]">
+              TOSS RESULT
+            </span>
+          </div>
+
+          <div className="text-3xl sm:text-5xl md:text-6xl font-['Barlow_Condensed',sans-serif] font-black uppercase tracking-tight text-white mb-3">
+            <span className="text-[#d4fc04] drop-shadow-[0_0_15px_rgba(212,252,4,0.4)]">
+              {tossWinner}
+            </span>{' '}
+            WON THE TOSS
+          </div>
+
+          <div className="mt-1 px-6 sm:px-8 py-2 sm:py-3 rounded-xl bg-[#d4fc04] text-[#02141a] font-['Barlow_Condensed',sans-serif] font-black text-2xl sm:text-4xl md:text-5xl tracking-wide uppercase shadow-[0_0_30px_rgba(212,252,4,0.5)]">
+            {decisionText}
+          </div>
+        </div>
+
+      </div>
+
+      {/* Bottom Progress Bar & Footer */}
+      <div className="relative z-10 w-full pt-3 border-t-2 border-[#09414f] flex flex-col gap-2">
+        <div className="flex items-center justify-between text-xs font-mono text-slate-400">
+          <span className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full bg-emerald-400" />
+            STADIUM LED OVERLAY ACTIVE
+          </span>
+          <span>AUTORETURN IN {timeLeft}S • PRESS [ESC] TO DISMISS</span>
+        </div>
+
+        {/* Animated Progress Bar */}
+        <div className="w-full h-2 rounded-full bg-[#032026] overflow-hidden border border-[#0d4654]">
+          <div
+            className="h-full bg-gradient-to-r from-[#e6ff40] to-[#d4fc04] transition-all duration-1000 ease-linear shadow-[0_0_10px_rgba(212,252,4,0.8)]"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default TossOverlay;

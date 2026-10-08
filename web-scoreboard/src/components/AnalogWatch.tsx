@@ -64,10 +64,10 @@ export default function AnalogWatch({
     const rOuter = 46.5;
     const rInner = isHour ? 39.5 : 43.2;
 
-    const x1 = 50 + rInner * Math.cos(rad);
-    const y1 = 50 + rInner * Math.sin(rad);
-    const x2 = 50 + rOuter * Math.cos(rad);
-    const y2 = 50 + rOuter * Math.sin(rad);
+    const x1 = Math.round((50 + rInner * Math.cos(rad)) * 100) / 100;
+    const y1 = Math.round((50 + rInner * Math.sin(rad)) * 100) / 100;
+    const x2 = Math.round((50 + rOuter * Math.cos(rad)) * 100) / 100;
+    const y2 = Math.round((50 + rOuter * Math.sin(rad)) * 100) / 100;
 
     return {
       index: i,
@@ -86,8 +86,8 @@ export default function AnalogWatch({
     const rad = (angle - 90) * (Math.PI / 180);
     const rNum = 30.5;
 
-    const x = 50 + rNum * Math.cos(rad);
-    const y = 50 + rNum * Math.sin(rad);
+    const x = Math.round((50 + rNum * Math.cos(rad)) * 100) / 100;
+    const y = Math.round((50 + rNum * Math.sin(rad)) * 100) / 100;
 
     return { num, x, y };
   });
